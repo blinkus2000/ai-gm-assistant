@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }} — Adventure Module</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+
+        @page {
+            size: A4;
+            margin: 2cm 2.5cm;
+            @top-center {
+                content: "{{ title }}";
+                font-family: 'Cinzel', serif;
+                font-size: 9pt;
+                color: #8B7355;
+            }
+            @bottom-center {
+                content: counter(page);
+                font-family: 'Crimson Text', serif;
+                font-size: 10pt;
+                color: #8B7355;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Crimson Text', serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #1a1a1a;
+            background: #fdf6e3;
+        }
+
+        /* Title page */
+        .title-page {
+            text-align: center;
+            padding-top: 6cm;
+            page-break-after: always;
+        }
+
+        .title-page h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 32pt;
+            color: #7B2D26;
+            margin-bottom: 0.5cm;
+            letter-spacing: 2px;
+        }
+
+        .title-page .meta {
+            font-size: 14pt;
+            color: #8B7355;
+            margin-top: 1cm;
+        }
+
+        .title-page .divider {
+            width: 60%;
+            margin: 1cm auto;
+            border: none;
+            border-top: 2px solid #8B7355;
+        }
+
+        /* Section headings */
+        h2 {
+            font-family: 'Cinzel', serif;
+            font-size: 18pt;
+            color: #7B2D26;
+            border-bottom: 2px solid #8B7355;
+            padding-bottom: 4px;
+            margin-top: 1.5cm;
+            page-break-after: avoid;
+        }
+
+        h3 {
+            font-family: 'Cinzel', serif;
+            font-size: 14pt;
+            color: #4a3728;
+            margin-top: 0.8cm;
+            page-break-after: avoid;
+        }
+
+        h4 {
+            font-family: 'Cinzel', serif;
+            font-size: 12pt;
+            color: #5a4738;
+        }
+
+        /* Read-aloud boxes */
+        blockquote {
+            background: #f5ebe0;
+            border-left: 4px solid #7B2D26;
+            padding: 0.5cm 0.8cm;
+            margin: 0.5cm 0;
+            font-style: italic;
+            page-break-inside: avoid;
+        }
+
+        /* Stat blocks */
+        .stat-block {
+            background: #fef9ef;
+            border: 1px solid #8B7355;
+            border-top: 3px solid #7B2D26;
+            padding: 0.5cm;
+            margin: 0.5cm 0;
+            page-break-inside: avoid;
+        }
+
+        .stat-block h4 {
+            margin: 0 0 0.3cm 0;
+            color: #7B2D26;
+        }
+
+        /* Images */
+        .illustration {
+            width: 100%;
+            margin: 0.5cm 0;
+            border: 1px solid #8B7355;
+            page-break-inside: avoid;
+        }
+
+        .illustration img {
+            width: 100%;
+            display: block;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0.5cm 0;
+            page-break-inside: avoid;
+        }
+
+        th, td {
+            border: 1px solid #8B7355;
+            padding: 4px 8px;
+            text-align: left;
+        }
+
+        th {
+            background: #7B2D26;
+            color: #fdf6e3;
+            font-family: 'Cinzel', serif;
+            font-size: 10pt;
+        }
+
+        /* Introduction */
+        .introduction {
+            font-size: 12pt;
+            border: 1px solid #8B7355;
+            background: #fef9ef;
+            padding: 0.8cm;
+            margin: 0 0 1cm 0;
+        }
+
+        /* Appendix */
+        .appendix {
+            border-top: 3px double #8B7355;
+            padding-top: 0.5cm;
+            margin-top: 1cm;
+        }
+
+        .appendix h2 {
+            color: #4a3728;
+        }
+
+        /* Code blocks (for stat formatting) */
+        pre, code {
+            font-family: 'Courier New', monospace;
+            font-size: 9pt;
+            background: #fef9ef;
+            padding: 2px 4px;
+        }
+
+        pre {
+            border: 1px solid #8B7355;
+            padding: 0.3cm;
+            overflow-x: auto;
+            page-break-inside: avoid;
+        }
+
+        /* Lists */
+        ul, ol {
+            padding-left: 1cm;
+        }
+
+        li {
+            margin-bottom: 0.15cm;
+        }
+    </style>
+</head>
+<body>
+    <!-- Title Page -->
+    <div class="title-page">
+        <h1>{{ title }}</h1>
+        <hr class="divider">
+        <div class="meta">
+            {{ campaign_name }}<br>
+            {{ game_system }}
+        </div>
+    </div>
+
+    <!-- Introduction -->
+    <div class="introduction">
+        <h2>Introduction</h2>
+        {{ introduction }}
+    </div>
+
+    <!-- Sections -->
+    {% for section, image in sections %}
+    <div class="module-section">
+        <h2>{{ section.heading }}</h2>
+
+        {% if image %}
+        <div class="illustration">
+            <img src="{{ image }}" alt="{{ section.heading }}">
+        </div>
+        {% endif %}
+
+        {{ section.content }}
+    </div>
+    {% endfor %}
+
+    <!-- Appendix -->
+    {% if appendix %}
+    <div class="appendix">
+        <h2>Appendix</h2>
+        {{ appendix }}
+    </div>
+    {% endif %}
+</body>
+</html>

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI-powered Game Master Assistant for building and running TTRPG campaigns with verified rules.">
+    <title>AI GM Assistant</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1><span class="icon">⚔️</span> GM Assistant</h1>
+                <div class="subtitle">AI-Powered Campaign Manager</div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="sidebar-section-label">Navigation</div>
+                <button class="sidebar-btn active" data-view="dashboard" id="nav-dashboard">
+                    <span class="btn-icon">🏠</span> Dashboard
+                </button>
+                <button class="sidebar-btn" data-view="settings" id="nav-settings">
+                    <span class="btn-icon">⚙️</span> Settings
+                </button>
+
+                <div class="sidebar-section-label" id="campaigns-label">Campaigns</div>
+                <ul class="campaign-list" id="campaign-list">
+                    <!-- Populated dynamically -->
+                </ul>
+
+                <button class="sidebar-btn" id="btn-new-campaign" style="margin-top: 0.5rem;">
+                    <span class="btn-icon">✦</span> New Campaign
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main content -->
+        <main class="main-content" id="main-content">
+            <!-- Dashboard View -->
+            <div id="view-dashboard">
+                <div class="content-header">
+                    <h2>Dashboard</h2>
+                </div>
+                <div class="content-body">
+                    <div class="dashboard-hero">
+                        <h2>⚔️ GM Assistant</h2>
+                        <p>Create and manage your TTRPG campaigns with AI-powered content generation grounded in your rulesets.</p>
+                    </div>
+
+                    <div class="stats-row" id="dashboard-stats">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-campaigns">0</div>
+                            <div class="stat-label">Campaigns</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-sessions">0</div>
+                            <div class="stat-label">Sessions</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-npcs">0</div>
+                            <div class="stat-label">NPCs</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-gold" style="font-family: 'Cinzel', serif;">Your Campaigns</h3>
+                        <button class="btn btn-primary" id="btn-new-campaign-main">
+                            ✦ New Campaign
+                        </button>
+                    </div>
+
+                    <div class="card-grid" id="campaign-cards">
+                        <!-- Populated dynamically -->
+                    </div>
+
+                    <div class="empty-state" id="empty-dashboard" style="display:none;">
+                        <div class="icon">📜</div>
+                        <p>No campaigns yet. Create your first campaign to begin your adventure!</p>
+                        <button class="btn btn-primary" id="btn-new-campaign-empty">✦ Create Campaign</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Campaign View -->
+            <div id="view-campaign" style="display:none;">
+                <div class="content-header">
+                    <div>
+                        <div class="breadcrumb">Dashboard › <span id="campaign-breadcrumb-name"></span></div>
+                        <h2 id="campaign-title"></h2>
+                    </div>
+                    <div class="flex gap-sm">
+                        <button class="btn btn-sm" id="btn-edit-campaign">✏️ Edit</button>
+                        <button class="btn btn-sm btn-danger" id="btn-delete-campaign">🗑️ Delete</button>
+                    </div>
+                </div>
+
+                <div class="content-body">
+                    <!-- Campaign tabs -->
+                    <div class="tabs" id="campaign-tabs">
+                        <button class="tab active" data-tab="overview">📋 Overview</button>
+                        <button class="tab" data-tab="sessions">📖 Sessions <span class="count" id="tab-count-sessions">0</span></button>
+                        <button class="tab" data-tab="npcs">👤 NPCs <span class="count" id="tab-count-npcs">0</span></button>
+                        <button class="tab" data-tab="locations">🗺️ Locations <span class="count" id="tab-count-locations">0</span></button>
+                        <button class="tab" data-tab="plot-threads">🧵 Plot Threads <span class="count" id="tab-count-plots">0</span></button>
+                        <button class="tab" data-tab="adversaries">👺 Adversaries <span class="count" id="tab-count-adversaries">0</span></button>
+                        <button class="tab" data-tab="rulesets">📚 Rulesets <span class="count" id="tab-count-rulesets">0</span></button>
+                        <button class="tab" data-tab="generate">🤖 Generate</button>
+                        <button class="tab" data-tab="modules">📕 Modules</button>
+                    </div>
+
+                    <!-- Overview tab -->
+                    <div class="tab-panel active" id="panel-overview">
+                        <div class="card mb-2">
+                            <div class="flex justify-between items-center mb-1">
+                                <div class="card-meta">
+                                    <span class="tag" id="overview-system"></span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Setting</label>
+                                <div id="overview-setting" class="content-display"></div>
+                            </div>
+                            <div class="form-group mt-2">
+                                <label class="form-label">Campaign Notes</label>
+                                <div id="overview-notes" class="content-display"></div>
+                            </div>
+                        </div>
+
+                        <div class="stats-row mt-2">
+                            <div class="stat-card">
+                                <div class="stat-value" id="overview-sessions">0</div>
+                                <div class="stat-label">Sessions</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="overview-npcs">0</div>
+                                <div class="stat-label">NPCs</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="overview-locations">0</div>
+                                <div class="stat-label">Locations</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="overview-plots">0</div>
+                                <div class="stat-label">Plot Threads</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="overview-adversaries">0</div>
+                                <div class="stat-label">Adversaries</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="overview-rulesets">0</div>
+                                <div class="stat-label">Rulesets</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sessions tab -->
+                    <div class="tab-panel" id="panel-sessions">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-gold" style="font-family:'Cinzel',serif;">Sessions</h3>
+                            <div class="flex gap-sm">
+                                <button class="btn btn-primary btn-sm" id="btn-generate-session">🤖 Generate Session</button>
+                                <button class="btn btn-sm" id="btn-add-session">+ Add Manually</button>
+                            </div>
+                        </div>
+                        <div id="sessions-list"></div>
+                        <div class="empty-state" id="empty-sessions" style="display:none;">
+                            <div class="icon">📖</div>
+                            <p>No sessions yet. Generate your first session or add one manually.</p>
+                        </div>
+                    </div>
+
+                    <!-- NPCs tab -->
+                    <div class="tab-panel" id="panel-npcs">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-gold" style="font-family:'Cinzel',serif;">NPCs</h3>
+                            <div class="flex gap-sm">
+                                <button class="btn btn-primary btn-sm" id="btn-generate-npc">🤖 Generate NPC</button>
+                                <button class="btn btn-sm" id="btn-add-npc">+ Add Manually</button>
+                            </div>
+                        </div>
+                        <div class="card-grid" id="npcs-grid"></div>
+                        <div class="empty-state" id="empty-npcs" style="display:none;">
+                            <div class="icon">👤</div>
+                            <p>No NPCs yet. Generate one with AI or add one manually.</p>
+                        </div>
+                    </div>
+
+                    <!-- Locations tab -->
+                    <div class="tab-panel" id="panel-locations">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-gold" style="font-family:'Cinzel',serif;">Locations</h3>
+                            <div class="flex gap-sm">
+                                <button class="btn btn-primary btn-sm" id="btn-generate-location">🤖 Generate Location</button>
+                                <button class="btn btn-sm" id="btn-add-location">+ Add Manually</button>
+                            </div>
+                        </div>
+                        <div class="card-grid" id="locations-grid"></div>
+                        <div class="empty-state" id="empty-locations" style="display:none;">
+                            <div class="icon">🗺️</div>
+                            <p>No locations yet. Generate one with AI or add one manually.</p>
+                        </div>
+                    </div>
+
+                    <!-- Plot Threads tab -->
+                    <div class="tab-panel" id="panel-plot-threads">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-gold" style="font-family:'Cinzel',serif;">Plot Threads</h3>
+                            <button class="btn btn-sm" id="btn-add-plot">+ Add Plot Thread</button>
+                        </div>
+                        <div id="plots-list"></div>
+                        <div class="empty-state" id="empty-plots" style="display:none;">
+                            <div class="icon">🧵</div>
+                            <p>No plot threads yet. Add one to track your campaign's storylines.</p>
+                        </div>
+                    </div>
+
+                    <!-- Adversaries tab -->
+                    <div class="tab-panel" id="panel-adversaries">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-gold" style="font-family:'Cinzel',serif;">Primary Adversaries</h3>
+                            <div class="flex gap-sm">
+                                <button class="btn btn-primary btn-sm" id="btn-generate-adversary">🤖 Generate Adversary</button>
+                                <button class="btn btn-sm" id="btn-add-adversary">+ Add Manually</button>
+                            </div>
+                        </div>
+                        <div class="card-grid" id="adversaries-grid"></div>
+                        <div class="empty-state" id="empty-adversaries" style="display:none;">
+                            <div class="icon">👺</div>
+                            <p>No primary adversaries yet. Generate one with AI or add one manually.</p>
+                        </div>
+                    </div>
+
+                    <!-- Rulesets tab -->
+                    <div class="tab-panel" id="panel-rulesets">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-gold" style="font-family:'Cinzel',serif;">Ruleset PDFs</h3>
+                        </div>
+                        <div class="card mb-2">
+                            <div class="upload-area" id="ruleset-upload-area">
+                                <div class="upload-icon">📄</div>
+                                <div class="upload-text">Drop a ruleset PDF here or click to upload</div>
+                                <div class="upload-hint">PDF files only • Used for AI rule verification</div>
+                                <input type="file" id="ruleset-file-input" accept=".pdf" style="display:none;">
+                            </div>
+                        </div>
+                        <div id="rulesets-list"></div>
+                        <div class="empty-state" id="empty-rulesets" style="display:none;">
+                            <div class="icon">📚</div>
+                            <p>No rulesets uploaded. Upload your game system's PDF rulebooks to enable AI-verified rule references.</p>
+                        </div>
+                    </div>
+
+                    <!-- Generate tab -->
+                    <div class="tab-panel" id="panel-generate">
+                        <h3 class="text-gold mb-2" style="font-family:'Cinzel',serif;">AI Content Generator</h3>
+
+                        <div class="card mb-2">
+                            <div class="form-group">
+                                <label class="form-label">Generation Type</label>
+                                <select class="form-select" id="gen-type">
+                                    <option value="session">📖 Session Plan</option>
+                                    <option value="npc">👤 NPC</option>
+                                    <option value="adversary">👺 Adversary</option>
+                                    <option value="encounter">⚔️ Encounter</option>
+                                    <option value="location">🗺️ Location</option>
+                                    <option value="ask-rules">📚 Ask Rules</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Prompt</label>
+                                <textarea class="form-textarea" id="gen-prompt" placeholder="Describe what you want to generate..."></textarea>
+                            </div>
+
+                            <!-- Optional fields for specific types -->
+                            <div id="gen-extra-fields"></div>
+
+                            <div class="form-group">
+                                <label class="form-label">Additional Context (optional)</label>
+                                <textarea class="form-textarea" id="gen-context" placeholder="Any extra context for the AI..." style="min-height:80px;"></textarea>
+                            </div>
+
+                            <button class="btn btn-primary" id="btn-generate">🤖 Generate</button>
+                        </div>
+
+                        <div class="card" id="gen-result-card" style="display:none;">
+                            <div class="flex justify-between items-center mb-1">
+                                <h3 class="text-gold" style="font-family:'Cinzel',serif;">Generated Content</h3>
+                                <button class="btn btn-sm btn-primary" id="btn-save-generated">💾 Save to Campaign</button>
+                            </div>
+                            <div class="content-display" id="gen-result"></div>
+                        </div>
+                    </div>
+
+                    <!-- Modules tab -->
+                    <div class="tab-panel" id="panel-modules">
+                        <h3 class="text-gold mb-2" style="font-family:'Cinzel',serif;">Adventure Modules</h3>
+
+                        <div class="card mb-2">
+                            <div class="form-group">
+                                <label class="form-label">Module Title (optional)</label>
+                                <input class="form-input" id="module-title" placeholder="e.g., The Sunken Temple of Shadows">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Description / Prompt</label>
+                                <textarea class="form-textarea" id="module-prompt" placeholder="Describe the adventure module you want to generate..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" style="display:flex;align-items:center;gap:0.5rem;">
+                                    <input type="checkbox" id="module-illustrations" checked>
+                                    Include AI-generated illustrations
+                                </label>
+                            </div>
+                            <button class="btn btn-primary" id="btn-generate-module">📕 Generate Module PDF</button>
+                        </div>
+
+                        <h4 class="text-gold mt-3 mb-1" style="font-family:'Cinzel',serif;">Generated Modules</h4>
+                        <div id="modules-list"></div>
+                        <div class="empty-state" id="empty-modules" style="display:none;">
+                            <div class="icon">📕</div>
+                            <p>No modules generated yet. Create an illustrated adventure module above.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Settings View -->
+            <div id="view-settings" style="display:none;">
+                <div class="content-header">
+                    <h2>App Settings</h2>
+                </div>
+                <div class="content-body">
+                    <div class="card">
+                        <h3 class="text-gold mb-2" style="font-family:'Cinzel',serif;">Model Configuration</h3>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Reasoning Model</label>
+                            <select class="form-select" id="settings-reasoning-model">
+                                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Most Powerful)</option>
+                                <option value="gemini-3-flash-preview">Gemini 3 Flash (Fast/Default)</option>
+                                <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite (Efficient)</option>
+                                <option value="gemini-2.5-pro">Gemini 2.5 Pro (Stable)</option>
+                                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                            </select>
+                            <div class="form-hint">Used for content generation, NPC creation, and rules queries.</div>
+                        </div>
+
+                        <div class="form-group mt-2">
+                            <label class="form-label">Image Generation Model</label>
+                            <select class="form-select" id="settings-image-model">
+                                <option value="imagen-4.0-ultra-generate-001">Imagen 4.0 Ultra (Best Quality)</option>
+                                <option value="imagen-4.0-generate-001">Imagen 4.0 (Balanced)</option>
+                                <option value="imagen-4.0-fast-generate-001">Imagen 4.0 Fast</option>
+                                <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash Image</option>
+                                <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image (Legacy)</option>
+                            </select>
+                            <div class="form-hint">Used for NPC portraits and module illustrations.</div>
+                        </div>
+
+                        <div class="mt-3">
+                            <button class="btn btn-primary" id="btn-save-settings">💾 Save Settings</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Adversary Detail Full-Page View -->
+    <div class="detail-full-page" id="adversary-detail-view" style="display:none;">
+        <div class="detail-header">
+            <button class="btn btn-sm" id="btn-close-adversary-detail">← Back to Campaign</button>
+            <div class="detail-title-row">
+                <h2 id="adv-detail-name">Adversary Name</h2>
+                <div id="adv-detail-tags"></div>
+            </div>
+        </div>
+        <div class="detail-content">
+            <div class="detail-grid">
+                <div class="detail-sidebar">
+                    <div id="adv-detail-image-container" class="detail-image-box">
+                        <!-- Image populated here -->
+                    </div>
+                    <div class="detail-actions mt-2">
+                        <button class="btn btn-primary btn-block" id="btn-detail-gen-image">🖼️ Regen Image</button>
+                        <button class="btn btn-block mt-1" id="btn-detail-edit">✏️ Edit Adversary</button>
+                    </div>
+                </div>
+                <div class="detail-main">
+                    <section class="detail-section">
+                        <h3>Description</h3>
+                        <div id="adv-detail-description" class="content-display white-space-pre"></div>
+                    </section>
+                    
+                    <section class="detail-section mt-3">
+                        <h3>Master Plan (The 5 Steps)</h3>
+                        <div class="plan-steps" id="adv-detail-steps">
+                            <!-- Steps populated here -->
+                        </div>
+                    </section>
+
+                    <section class="detail-section mt-3">
+                        <h3>GM Notes</h3>
+                        <div id="adv-detail-notes" class="content-display white-space-pre"></div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/static/app.js?v=6"></script>
+</body>
+</html>
