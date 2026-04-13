@@ -24,6 +24,7 @@ from .models import (
     Adversary, AdventureType, AdversaryType,
     GenerateSessionRequest, GenerateNPCRequest, GenerateEncounterRequest,
     GenerateRequest, GenerateModuleRequest, GenerateAdversaryRequest, AppSettings,
+    EnhanceRequest,
 )
 from . import storage
 from . import ruleset_manager
@@ -461,12 +462,12 @@ async def gen_adversary(campaign_id: str, req: GenerateAdversaryRequest):
 
 
 @app.post("/api/campaigns/{campaign_id}/npcs/{npc_id}/enhance")
-async def api_enhance_npc(campaign_id: str, npc_id: str):
+async def api_enhance_npc(campaign_id: str, npc_id: str, req: EnhanceRequest):
     campaign = _get_campaign(campaign_id)
     npc = next((n for n in campaign.npcs if n.id == npc_id), None)
     if not npc:
         raise HTTPException(status_code=404, detail="NPC not found")
-    result = generator.enhance_npc(campaign, npc.model_dump_json())
+    result = generator.enhance_npc(campaign, npc.model_dump_json(), guidance_prompt=req.prompt)
     try:
         npc.role = NPCRole(result.role)
     except:
@@ -482,12 +483,12 @@ async def api_enhance_npc(campaign_id: str, npc_id: str):
 
 
 @app.post("/api/campaigns/{campaign_id}/locations/{location_id}/enhance")
-async def api_enhance_location(campaign_id: str, location_id: str):
+async def api_enhance_location(campaign_id: str, location_id: str, req: EnhanceRequest):
     campaign = _get_campaign(campaign_id)
     loc = next((l for l in campaign.locations if l.id == location_id), None)
     if not loc:
         raise HTTPException(status_code=404, detail="Location not found")
-    result = generator.enhance_location(campaign, loc.model_dump_json())
+    result = generator.enhance_location(campaign, loc.model_dump_json(), guidance_prompt=req.prompt)
     loc.description = result.description
     if result.points_of_interest:
         loc.points_of_interest = result.points_of_interest
@@ -501,15 +502,39 @@ async def api_enhance_location(campaign_id: str, location_id: str):
 
 
 @app.post("/api/campaigns/{campaign_id}/plot-threads/{thread_id}/enhance")
-async def api_enhance_plot_thread(campaign_id: str, thread_id: str):
+async def api_enhance_plot_thread(campaign_id: str, thread_id: str, req: EnhanceRequest):
     campaign = _get_campaign(campaign_id)
     plot = next((p for p in campaign.plot_threads if p.id == thread_id), None)
     if not plot:
         raise HTTPException(status_code=404, detail="Plot Thread not found")
-    result = generator.enhance_plot_thread(campaign, plot.model_dump_json())
+    result = generator.enhance_plot_thread(campaign, plot.model_dump_json(), guidance_prompt=req.prompt)
     plot.description = result.description
     if result.notes:
         plot.notes = result.notes
+    campaign.updated_at = _now()
+    storage.save_campaign(campaign)
+    return result.model_dump()
+
+
+@app.post("/api/campaigns/{campaign_id}/sessions/{session_id}/enhance")
+async def api_enhance_session(campaign_id: str, session_id: str, req: EnhanceRequest):
+    campaign = _get_campaign(campaign_id)
+    session = next((s for s in campaign.sessions if s.id == session_id), None)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    result = generator.enhance_session(campaign, session.model_dump_json(), guidance_prompt=req.prompt)
+    
+    session.title = result.title
+    session.summary = result.summary
+    session.plan = result.plan
+    if result.npcs_involved:
+        session.npcs_involved = list(set(session.npcs_involved + result.npcs_involved))
+    if result.locations_visited:
+        session.locations_visited = list(set(session.locations_visited + result.locations_visited))
+    if result.key_events:
+        session.key_events = list(set(session.key_events + result.key_events))
+    
+    session.updated_at = _now()
     campaign.updated_at = _now()
     storage.save_campaign(campaign)
     return result.model_dump()

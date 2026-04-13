@@ -108,6 +108,20 @@ function showModal(title, contentHtml, onConfirm, confirmText = 'Save') {
     return overlay;
 }
 
+function showEnhanceModal(title, onConfirm) {
+    const content = `
+        <p class="mb-1 text-sm">You can provide optional guidance or focus for the AI to follow during this enhancement.</p>
+        <div class="form-group">
+            <label class="form-label">Guidance Prompt (Optional)</label>
+            <textarea class="form-textarea" id="enhance-prompt" placeholder="e.g., 'Make it more mysterious', 'Add more details about the history', etc." style="min-height:100px;"></textarea>
+        </div>
+    `;
+    return showModal(`✨ Enhance ${title}`, content, (overlay) => {
+        const prompt = overlay.querySelector('#enhance-prompt').value.trim();
+        onConfirm(prompt);
+    }, 'Enhance');
+}
+
 // ---------------------------------------------------------------------------
 // View management
 // ---------------------------------------------------------------------------
@@ -353,6 +367,7 @@ function renderSessions() {
             <div class="card-actions">
                 <button class="btn btn-sm" onclick="editSession('${s.id}')">✏️ Edit</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteSession('${s.id}')">🗑️</button>
+                <button class="btn btn-sm" onclick="enhanceSession('${s.id}')" title="Enhance with AI">✨</button>
             </div>
         </div>
     `).join('');
@@ -1685,39 +1700,67 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 // -- AI Enhancements and Generation --
 async function enhanceNPC(npcId) {
-    if(!confirm('This will use AI to expand this NPC. Continue?')) return;
-    showLoading('Enhancing NPC...');
-    try {
-        await api(`/campaigns/${state.currentCampaign.id}/npcs/${npcId}/enhance`, {method: 'POST'});
-        toast('NPC Enhanced!', 'success');
-        await openCampaign(state.currentCampaign.id);
-    } catch(e) {} finally {
-        hideLoading();
-    }
+    showEnhanceModal('NPC', async (prompt) => {
+        showLoading('Enhancing NPC...');
+        try {
+            await api(`/campaigns/${state.currentCampaign.id}/npcs/${npcId}/enhance`, {
+                method: 'POST',
+                body: JSON.stringify({ prompt })
+            });
+            toast('NPC Enhanced!', 'success');
+            await openCampaign(state.currentCampaign.id);
+        } catch(e) {} finally {
+            hideLoading();
+        }
+    });
 }
 
 async function enhanceLocation(locationId) {
-    if(!confirm('This will use AI to expand this Location. Continue?')) return;
-    showLoading('Enhancing Location...');
-    try {
-        await api(`/campaigns/${state.currentCampaign.id}/locations/${locationId}/enhance`, {method: 'POST'});
-        toast('Location Enhanced!', 'success');
-        await openCampaign(state.currentCampaign.id);
-    } catch(e) {} finally {
-        hideLoading();
-    }
+    showEnhanceModal('Location', async (prompt) => {
+        showLoading('Enhancing Location...');
+        try {
+            await api(`/campaigns/${state.currentCampaign.id}/locations/${locationId}/enhance`, {
+                method: 'POST',
+                body: JSON.stringify({ prompt })
+            });
+            toast('Location Enhanced!', 'success');
+            await openCampaign(state.currentCampaign.id);
+        } catch(e) {} finally {
+            hideLoading();
+        }
+    });
 }
 
 async function enhancePlotThread(threadId) {
-    if(!confirm('This will use AI to expand this Plot Thread. Continue?')) return;
-    showLoading('Enhancing Plot Thread...');
-    try {
-        await api(`/campaigns/${state.currentCampaign.id}/plot-threads/${threadId}/enhance`, {method: 'POST'});
-        toast('Plot Thread Enhanced!', 'success');
-        await openCampaign(state.currentCampaign.id);
-    } catch(e) {} finally {
-        hideLoading();
-    }
+    showEnhanceModal('Plot Thread', async (prompt) => {
+        showLoading('Enhancing Plot Thread...');
+        try {
+            await api(`/campaigns/${state.currentCampaign.id}/plot-threads/${threadId}/enhance`, {
+                method: 'POST',
+                body: JSON.stringify({ prompt })
+            });
+            toast('Plot Thread Enhanced!', 'success');
+            await openCampaign(state.currentCampaign.id);
+        } catch(e) {} finally {
+            hideLoading();
+        }
+    });
+}
+
+async function enhanceSession(sessionId) {
+    showEnhanceModal('Session', async (prompt) => {
+        showLoading('Enhancing Session...');
+        try {
+            await api(`/campaigns/${state.currentCampaign.id}/sessions/${sessionId}/enhance`, {
+                method: 'POST',
+                body: JSON.stringify({ prompt })
+            });
+            toast('Session Enhanced!', 'success');
+            await openCampaign(state.currentCampaign.id);
+        } catch(e) {} finally {
+            hideLoading();
+        }
+    });
 }
 
 async function generateNPCImage(npcId) {

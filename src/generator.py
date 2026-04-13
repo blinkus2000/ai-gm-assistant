@@ -475,11 +475,16 @@ mechanics, stats, and rules referenced in the module.
     return generate_with_retry(campaign, full_prompt, GeneratedModule)
 
 
-def enhance_npc(campaign: Campaign, npc_data: str) -> GeneratedNPC:
+def enhance_npc(campaign: Campaign, npc_data: str, guidance_prompt: str | None = None) -> GeneratedNPC:
     client = _get_client()
     context = build_campaign_context(campaign)
-    full_prompt = f"""{context}\n---\n## Enhance NPC Request
+    guidance = f"\n**GM's Guidance for this enhancement:** {guidance_prompt}" if guidance_prompt else ""
+    full_prompt = f"""{context}
+---
+## Enhance NPC Request
 Enhance the following NPC. Add more detail, personality, background, and game-system stats (if rulesets are available).
+{guidance}
+
 Original NPC Data:
 {npc_data}
 """
@@ -488,11 +493,16 @@ Original NPC Data:
     return GeneratedNPC.model_validate_json(_clean_json(response.text))
 
 
-def enhance_location(campaign: Campaign, location_data: str) -> GeneratedLocation:
+def enhance_location(campaign: Campaign, location_data: str, guidance_prompt: str | None = None) -> GeneratedLocation:
     client = _get_client()
     context = build_campaign_context(campaign)
-    full_prompt = f"""{context}\n---\n## Enhance Location Request
+    guidance = f"\n**GM's Guidance for this enhancement:** {guidance_prompt}" if guidance_prompt else ""
+    full_prompt = f"""{context}
+---
+## Enhance Location Request
 Enhance the following Location. Add more vivid descriptions, points of interest, hidden secrets, and adventure hooks.
+{guidance}
+
 Original Location Data:
 {location_data}
 """
@@ -501,17 +511,40 @@ Original Location Data:
     return GeneratedLocation.model_validate_json(_clean_json(response.text))
 
 
-def enhance_plot_thread(campaign: Campaign, plot_data: str) -> GeneratedPlotThread:
+def enhance_plot_thread(campaign: Campaign, plot_data: str, guidance_prompt: str | None = None) -> GeneratedPlotThread:
     client = _get_client()
     context = build_campaign_context(campaign)
-    full_prompt = f"""{context}\n---\n## Enhance Plot Thread Request
+    guidance = f"\n**GM's Guidance for this enhancement:** {guidance_prompt}" if guidance_prompt else ""
+    full_prompt = f"""{context}
+---
+## Enhance Plot Thread Request
 Enhance the following Plot Thread. Flesh out its developments, introduce new twists, outline potential resolutions, and tie it to existing NPCs and locations.
+{guidance}
+
 Original Plot Thread Data:
 {plot_data}
 """
     config = _build_config(campaign, GeneratedPlotThread)
     response = client.models.generate_content(model=_get_reasoning_model(), contents=full_prompt, config=config)
     return GeneratedPlotThread.model_validate_json(_clean_json(response.text))
+
+
+def enhance_session(campaign: Campaign, session_data: str, guidance_prompt: str | None = None) -> GeneratedSession:
+    client = _get_client()
+    context = build_campaign_context(campaign)
+    guidance = f"\n**GM's Guidance for this enhancement:** {guidance_prompt}" if guidance_prompt else ""
+    full_prompt = f"""{context}
+---
+## Enhance Session Request
+Enhance the following Session plan. Add more detail, vivid descriptions, read-aloud text, encounter specifics, and tie-ins to existing campaign elements.
+{guidance}
+
+Original Session Data:
+{session_data}
+"""
+    config = _build_config(campaign, GeneratedSession)
+    response = client.models.generate_content(model=_get_reasoning_model(), contents=full_prompt, config=config)
+    return GeneratedSession.model_validate_json(_clean_json(response.text))
 
 
 def generate_art_prompt(campaign: Campaign, entity_description: str) -> str:

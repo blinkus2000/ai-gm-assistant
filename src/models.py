@@ -208,6 +208,11 @@ class GenerateRequest(BaseModel):
     context: Optional[str] = None  # Additional context the GM wants to provide
 
 
+class EnhanceRequest(BaseModel):
+    """Request body for enhancing an existing entity."""
+    prompt: Optional[str] = None
+
+
 class GenerateSessionRequest(BaseModel):
     prompt: str
     session_number: Optional[int] = None
