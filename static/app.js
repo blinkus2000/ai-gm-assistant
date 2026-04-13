@@ -109,6 +109,26 @@ function showModal(title, contentHtml, onConfirm, confirmText = 'Save') {
 }
 
 // ---------------------------------------------------------------------------
+// View management
+// ---------------------------------------------------------------------------
+/**
+ * Shows the requested view and hides all others.
+ * @param {string} viewId - The ID of the view div to show (e.g. 'view-dashboard')
+ */
+function showView(viewId) {
+    const views = ['view-dashboard', 'view-campaign', 'view-settings'];
+    views.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (id === viewId) ? '' : 'none';
+    });
+
+    // Also close overlays if switching main views
+    if (typeof closeAdversaryDetail === 'function') {
+        closeAdversaryDetail();
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
 async function loadDashboard() {
@@ -170,8 +190,7 @@ async function openCampaign(id) {
         const campaign = await api(`/campaigns/${id}`);
         state.currentCampaign = campaign;
 
-        document.getElementById('view-dashboard').style.display = 'none';
-        document.getElementById('view-campaign').style.display = '';
+        showView('view-campaign');
 
         renderCampaignView();
         renderSidebar();
@@ -230,9 +249,7 @@ function renderCampaignView() {
 
 function showDashboard() {
     state.currentCampaign = null;
-    document.getElementById('view-dashboard').style.display = '';
-    document.getElementById('view-campaign').style.display = 'none';
-    document.getElementById('view-settings').style.display = 'none';
+    showView('view-dashboard');
     document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('nav-dashboard').classList.add('active');
     renderSidebar();
@@ -241,9 +258,7 @@ function showDashboard() {
 
 async function showSettings() {
     state.currentCampaign = null;
-    document.getElementById('view-dashboard').style.display = 'none';
-    document.getElementById('view-campaign').style.display = 'none';
-    document.getElementById('view-settings').style.display = '';
+    showView('view-settings');
     
     document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('nav-settings').classList.add('active');
