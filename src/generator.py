@@ -589,23 +589,23 @@ def generate_illustration(prompt: str, style: str = "fantasy illustration, detai
     client = _get_client()
 
     try:
-        response = client.models.generate_content(
+        response = client.models.generate_images(
             model=_get_image_model(),
-            contents=f"{style}: {prompt}",
-            config=types.GenerateContentConfig(
-                image_config=types.ImageConfig(
-                    aspect_ratio="16:9",
-                )
+            prompt=f"{style}: {prompt}",
+            config=types.GenerateImagesConfig(
+                number_of_images=1,
+                aspect_ratio="16:9",
             ),
         )
 
-        for p in (response.parts or []):
-            if p.inline_data is not None and getattr(p.inline_data, "data", None) is not None:
-                return p.inline_data.data
+        if response.generated_images:
+            return response.generated_images[0].image.image_bytes
+
     except Exception as e:
         logger.warning("Image generation failed: %s", e)
 
     return None
+
 
 
 ADVERSARY_TEMPLATES = {
