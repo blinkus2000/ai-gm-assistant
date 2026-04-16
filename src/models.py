@@ -156,6 +156,7 @@ class Adversary(BaseModel):
 
 class Campaign(BaseModel):
     id: str = Field(default_factory=_new_id)
+    schema_version: int = 1
     name: str
     game_system: str = ""          # e.g. "D&D 5e", "Pathfinder 2e"
     setting: str = ""              # Campaign world / setting description
@@ -199,6 +200,64 @@ class UpdateCampaignRequest(BaseModel):
     game_system: str | None = None
     setting: str | None = None
     notes: str | None = None
+
+
+class UpdateSessionRequest(BaseModel):
+    title: str | None = None
+    summary: str | None = None
+    plan: str | None = None
+    npcs_involved: list[str] | None = None
+    locations_visited: list[str] | None = None
+    plot_developments: list[str] | None = None
+    key_events: list[str] | None = None
+    status: SessionStatus | None = None
+    notes: str | None = None
+
+
+class UpdateNPCRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    role: NPCRole | None = None
+    stats: dict[str, Any] | None = None
+    notes: str | None = None
+    image_path: str | None = None
+
+
+class UpdateLocationRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    points_of_interest: list[str] | None = None
+    hooks: list[str] | None = None
+    notes: str | None = None
+    image_path: str | None = None
+
+
+class UpdateFactionRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    goals: str | None = None
+    notable_members: list[str] | None = None
+    notes: str | None = None
+
+
+class UpdatePlotThreadRequest(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    status: PlotThreadStatus | None = None
+    related_npcs: list[str] | None = None
+    related_locations: list[str] | None = None
+    related_sessions: list[str] | None = None
+    notes: str | None = None
+
+
+class UpdateAdversaryRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    adventure_type: AdventureType | None = None
+    adversary_type: AdversaryType | None = None
+    steps: list[str] | None = None
+    notes: str | None = None
+    image_path: str | None = None
 
 
 class GenerateRequest(BaseModel):

@@ -12,22 +12,12 @@ import logging
 import time
 from pathlib import Path
 
-from google import genai
 from google.genai import types
 
+from .gemini_client import get_client
 from .models import RulesetInfo
 
 logger = logging.getLogger(__name__)
-
-# Singleton client — uses GEMINI_API_KEY env var automatically
-_client: genai.Client | None = None
-
-
-def _get_client() -> genai.Client:
-    global _client
-    if _client is None:
-        _client = genai.Client()
-    return _client
 
 
 def create_ruleset_store(campaign_name: str) -> str:
@@ -36,7 +26,7 @@ def create_ruleset_store(campaign_name: str) -> str:
 
     Returns the store name (ID) to be saved on the Campaign model.
     """
-    client = _get_client()
+    client = get_client()
     store = client.file_search_stores.create(
         config={"display_name": f"gm-assistant-{campaign_name}"}
     )
@@ -64,7 +54,7 @@ def upload_ruleset_pdf(
     Returns:
         RulesetInfo with metadata about the uploaded file.
     """
-    client = _get_client()
+    client = get_client()
     pdf_path = Path(pdf_path)
 
     logger.info("Uploading %s to store %s ...", pdf_path.name, store_name)
@@ -98,7 +88,7 @@ def upload_ruleset_pdf(
 def delete_ruleset_store(store_name: str) -> None:
     """Delete a File Search Store (and all its indexed files)."""
     try:
-        client = _get_client()
+        client = get_client()
         client.file_search_stores.delete(name=store_name)
         logger.info("Deleted File Search Store: %s", store_name)
     except Exception as e:

@@ -16,6 +16,7 @@ import google.genai.errors
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from . import generator, ruleset_manager, storage
 from .models import (
@@ -37,7 +38,12 @@ from .models import (
     NPCRole,
     PlotThread,
     Session,
+    UpdateAdversaryRequest,
     UpdateCampaignRequest,
+    UpdateLocationRequest,
+    UpdateNPCRequest,
+    UpdatePlotThreadRequest,
+    UpdateSessionRequest,
 )
 from .paths import get_data_dir, get_static_dir
 from .pdf_builder import build_module_pdf
@@ -88,6 +94,22 @@ def _get_campaign(campaign_id: str) -> Campaign:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _update_campaign_entity(campaign_id: str, collection_name: str, entity_id: str, updates: BaseModel) -> dict:
+    campaign = _get_campaign(campaign_id)
+    collection = getattr(campaign, collection_name)
+    for entity in collection:
+        if entity.id == entity_id:
+            for key, value in updates.model_dump(exclude_unset=True).items():
+                if hasattr(entity, key):
+                    setattr(entity, key, value)
+            if hasattr(entity, "updated_at"):
+                entity.updated_at = _now()
+            campaign.updated_at = _now()
+            storage.save_campaign(campaign)
+            return {"status": "ok"}
+    raise HTTPException(status_code=404, detail=f"Entity not found in {collection_name}")
 
 
 # ---------------------------------------------------------------------------
@@ -184,18 +206,8 @@ async def add_session(campaign_id: str, session: Session):
 
 
 @app.put("/api/campaigns/{campaign_id}/sessions/{session_id}")
-async def update_session(campaign_id: str, session_id: str, updates: dict):
-    campaign = _get_campaign(campaign_id)
-    for s in campaign.sessions:
-        if s.id == session_id:
-            for key, value in updates.items():
-                if hasattr(s, key):
-                    setattr(s, key, value)
-            s.updated_at = _now()
-            campaign.updated_at = _now()
-            storage.save_campaign(campaign)
-            return {"status": "ok"}
-    raise HTTPException(status_code=404, detail="Session not found")
+async def update_session(campaign_id: str, session_id: str, updates: UpdateSessionRequest):
+    return _update_campaign_entity(campaign_id, "sessions", session_id, updates)
 
 
 @app.delete("/api/campaigns/{campaign_id}/sessions/{session_id}")
@@ -221,17 +233,8 @@ async def add_npc(campaign_id: str, npc: NPC):
 
 
 @app.put("/api/campaigns/{campaign_id}/npcs/{npc_id}")
-async def update_npc(campaign_id: str, npc_id: str, updates: dict):
-    campaign = _get_campaign(campaign_id)
-    for npc in campaign.npcs:
-        if npc.id == npc_id:
-            for key, value in updates.items():
-                if hasattr(npc, key):
-                    setattr(npc, key, value)
-            campaign.updated_at = _now()
-            storage.save_campaign(campaign)
-            return {"status": "ok"}
-    raise HTTPException(status_code=404, detail="NPC not found")
+async def update_npc(campaign_id: str, npc_id: str, updates: UpdateNPCRequest):
+    return _update_campaign_entity(campaign_id, "npcs", npc_id, updates)
 
 
 @app.delete("/api/campaigns/{campaign_id}/npcs/{npc_id}")
@@ -257,17 +260,8 @@ async def add_location(campaign_id: str, location: Location):
 
 
 @app.put("/api/campaigns/{campaign_id}/locations/{location_id}")
-async def update_location(campaign_id: str, location_id: str, updates: dict):
-    campaign = _get_campaign(campaign_id)
-    for loc in campaign.locations:
-        if loc.id == location_id:
-            for key, value in updates.items():
-                if hasattr(loc, key):
-                    setattr(loc, key, value)
-            campaign.updated_at = _now()
-            storage.save_campaign(campaign)
-            return {"status": "ok"}
-    raise HTTPException(status_code=404, detail="Location not found")
+async def update_location(campaign_id: str, location_id: str, updates: UpdateLocationRequest):
+    return _update_campaign_entity(campaign_id, "locations", location_id, updates)
 
 
 @app.delete("/api/campaigns/{campaign_id}/locations/{location_id}")
@@ -315,17 +309,8 @@ async def add_plot_thread(campaign_id: str, thread: PlotThread):
 
 
 @app.put("/api/campaigns/{campaign_id}/plot-threads/{thread_id}")
-async def update_plot_thread(campaign_id: str, thread_id: str, updates: dict):
-    campaign = _get_campaign(campaign_id)
-    for pt in campaign.plot_threads:
-        if pt.id == thread_id:
-            for key, value in updates.items():
-                if hasattr(pt, key):
-                    setattr(pt, key, value)
-            campaign.updated_at = _now()
-            storage.save_campaign(campaign)
-            return {"status": "ok"}
-    raise HTTPException(status_code=404, detail="Plot thread not found")
+async def update_plot_thread(campaign_id: str, thread_id: str, updates: UpdatePlotThreadRequest):
+    return _update_campaign_entity(campaign_id, "plot_threads", thread_id, updates)
 
 
 @app.delete("/api/campaigns/{campaign_id}/plot-threads/{thread_id}")
@@ -351,17 +336,8 @@ async def add_adversary(campaign_id: str, adversary: Adversary):
 
 
 @app.put("/api/campaigns/{campaign_id}/adversaries/{adversary_id}")
-async def update_adversary(campaign_id: str, adversary_id: str, updates: dict):
-    campaign = _get_campaign(campaign_id)
-    for adv in campaign.adversaries:
-        if adv.id == adversary_id:
-            for key, value in updates.items():
-                if hasattr(adv, key):
-                    setattr(adv, key, value)
-            campaign.updated_at = _now()
-            storage.save_campaign(campaign)
-            return {"status": "ok"}
-    raise HTTPException(status_code=404, detail="Adversary not found")
+async def update_adversary(campaign_id: str, adversary_id: str, updates: UpdateAdversaryRequest):
+    return _update_campaign_entity(campaign_id, "adversaries", adversary_id, updates)
 
 
 @app.delete("/api/campaigns/{campaign_id}/adversaries/{adversary_id}")

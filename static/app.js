@@ -1694,10 +1694,16 @@ function bindEvents() {
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
     bindEvents();
     loadDashboard();
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
 // -- AI Enhancements and Generation --
 async function enhanceNPC(npcId) {
     showEnhanceModal('NPC', async (prompt) => {

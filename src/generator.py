@@ -9,13 +9,13 @@ actual uploaded PDFs. Hallucinating rules is structurally prevented.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, TypeVar
 
-from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 
 from . import storage
+from .gemini_client import get_client
 from .models import (
     AdventureType,
     AdversaryType,
@@ -25,16 +25,6 @@ from .models import (
 from .ruleset_manager import get_file_search_tool
 
 logger = logging.getLogger(__name__)
-
-# Singleton client
-_client: genai.Client | None = None
-
-
-def _get_client() -> genai.Client:
-    global _client
-    if _client is None:
-        _client = genai.Client()
-    return _client
 
 
 # Model selection helpers
@@ -262,12 +252,14 @@ def _build_config(
 
 
 
+T = TypeVar("T", bound=BaseModel)
+
 def generate_with_retry(
     campaign: Campaign,
     full_prompt: str,
-    response_schema: type[BaseModel],
-):
-    client = _get_client()
+    response_schema: type[T],
+) -> T:
+    client = get_client()
     config = _build_config(campaign, response_schema)
     max_retries = 3
     current_prompt = full_prompt
@@ -286,6 +278,8 @@ def generate_with_retry(
                 logger.error(f"JSON validation failed on final attempt:\n{text}")
                 raise
             current_prompt += f"\n\nERROR: The JSON you returned was invalid: {e}\nPlease fix the JSON. Use proper escaping for quotes. Return ONLY raw valid JSON."
+    
+    raise ValueError("Max retries exceeded without returning")
 
 def generate_session(
     campaign: Campaign,
@@ -470,7 +464,6 @@ mechanics, stats, and rules referenced in the module.
 
 
 def enhance_npc(campaign: Campaign, npc_data: str, guidance_prompt: str | None = None) -> GeneratedNPC:
-    client = _get_client()
     context = build_campaign_context(campaign)
     guidance = f"\n**GM's Guidance for this enhancement:** {guidance_prompt}" if guidance_prompt else ""
     full_prompt = f"""{context}
@@ -482,13 +475,10 @@ Enhance the following NPC. Add more detail, personality, background, and game-sy
 Original NPC Data:
 {npc_data}
 """
-    config = _build_config(campaign, GeneratedNPC)
-    response = client.models.generate_content(model=_get_reasoning_model(), contents=full_prompt, config=config)
-    return GeneratedNPC.model_validate_json(_clean_json(response.text))
+    return generate_with_retry(campaign, full_prompt, GeneratedNPC)
 
 
 def enhance_location(campaign: Campaign, location_data: str, guidance_prompt: str | None = None) -> GeneratedLocation:
-    client = _get_client()
     context = build_campaign_context(campaign)
     guidance = f"\n**GM's Guidance for this enhancement:** {guidance_prompt}" if guidance_prompt else ""
     full_prompt = f"""{context}
@@ -500,13 +490,10 @@ Enhance the following Location. Add more vivid descriptions, points of interest,
 Original Location Data:
 {location_data}
 """
-    config = _build_config(campaign, GeneratedLocation)
-    response = client.models.generate_content(model=_get_reasoning_model(), contents=full_prompt, config=config)
-    return GeneratedLocation.model_validate_json(_clean_json(response.text))
+    return generate_with_retry(campaign, full_prompt, GeneratedLocation)
 
 
 def enhance_plot_thread(campaign: Campaign, plot_data: str, guidance_prompt: str | None = None) -> GeneratedPlotThread:
-    client = _get_client()
     context = build_campaign_context(campaign)
     guidance = f"\n**GM's Guidance for this enhancement:** {guidance_prompt}" if guidance_prompt else ""
     full_prompt = f"""{context}
@@ -518,13 +505,10 @@ Enhance the following Plot Thread. Flesh out its developments, introduce new twi
 Original Plot Thread Data:
 {plot_data}
 """
-    config = _build_config(campaign, GeneratedPlotThread)
-    response = client.models.generate_content(model=_get_reasoning_model(), contents=full_prompt, config=config)
-    return GeneratedPlotThread.model_validate_json(_clean_json(response.text))
+    return generate_with_retry(campaign, full_prompt, GeneratedPlotThread)
 
 
 def enhance_session(campaign: Campaign, session_data: str, guidance_prompt: str | None = None) -> GeneratedSession:
-    client = _get_client()
     context = build_campaign_context(campaign)
     guidance = f"\n**GM's Guidance for this enhancement:** {guidance_prompt}" if guidance_prompt else ""
     full_prompt = f"""{context}
@@ -536,14 +520,11 @@ Enhance the following Session plan. Add more detail, vivid descriptions, read-al
 Original Session Data:
 {session_data}
 """
-    config = _build_config(campaign, GeneratedSession)
-    response = client.models.generate_content(model=_get_reasoning_model(), contents=full_prompt, config=config)
-    return GeneratedSession.model_validate_json(_clean_json(response.text))
+    return generate_with_retry(campaign, full_prompt, GeneratedSession)
 
 
 def generate_art_prompt(campaign: Campaign, entity_description: str) -> str:
     """Use a reasoning model as an Art Director to create a vivid image prompt."""
-    client = _get_client()
     context = build_campaign_context(campaign)
 
     full_prompt = f"""
@@ -564,13 +545,7 @@ Act as a Lead Art Director for a TTRPG campaign. Your job is to transform a simp
 
 Return only the final image generation prompt.
 """
-    config = _build_config(campaign, ArtDirectorPrompt)
-    response = client.models.generate_content(
-        model=_get_reasoning_model(),
-        contents=full_prompt,
-        config=config
-    )
-    result = ArtDirectorPrompt.model_validate_json(_clean_json(response.text))
+    result = generate_with_retry(campaign, full_prompt, ArtDirectorPrompt)
     return result.prompt
 
 
@@ -580,7 +555,7 @@ def generate_illustration(prompt: str, style: str = "fantasy illustration, detai
 
     Returns raw image bytes (PNG), or None if generation fails.
     """
-    client = _get_client()
+    client = get_client()
 
     try:
         response = client.models.generate_images(
@@ -592,7 +567,7 @@ def generate_illustration(prompt: str, style: str = "fantasy illustration, detai
             ),
         )
 
-        if response.generated_images:
+        if response.generated_images and response.generated_images[0].image:
             return response.generated_images[0].image.image_bytes
 
     except Exception as e:

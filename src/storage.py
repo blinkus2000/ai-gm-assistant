@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 from pathlib import Path
 
 from .models import AppSettings, Campaign, CampaignSummary
@@ -71,10 +72,20 @@ def list_campaigns() -> list[CampaignSummary]:
 
 
 def delete_campaign(campaign_id: str) -> bool:
-    """Delete a campaign file. Return True if it existed."""
+    """Delete a campaign file and its assets. Return True if it existed."""
     path = _campaign_path(campaign_id)
     if path.exists():
         path.unlink()
+
+        # Cleanup associated assets
+        images_dir = get_data_dir() / "images" / campaign_id
+        if images_dir.exists():
+            shutil.rmtree(images_dir, ignore_errors=True)
+
+        rulesets_dir = get_data_dir() / "rulesets" / campaign_id
+        if rulesets_dir.exists():
+            shutil.rmtree(rulesets_dir, ignore_errors=True)
+
         return True
     return False
 
