@@ -14,12 +14,13 @@ from pathlib import Path
 from typing import Optional
 
 from .models import Campaign, CampaignSummary, AppSettings
+from .paths import get_data_dir
 
 logger = logging.getLogger(__name__)
 
-# Base data directory — relative to project root
-DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "campaigns"
-SETTINGS_PATH = Path(__file__).resolve().parent.parent / "data" / "settings.json"
+# Resolved at import time; works in both dev and frozen modes
+DATA_DIR = get_data_dir() / "campaigns"
+SETTINGS_PATH = get_data_dir() / "settings.json"
 
 
 def _ensure_dirs() -> None:
@@ -82,14 +83,14 @@ def delete_campaign(campaign_id: str) -> bool:
 
 def get_campaign_rulesets_dir(campaign_id: str) -> Path:
     """Return the directory where uploaded ruleset PDFs are stored for a campaign."""
-    d = Path(__file__).resolve().parent.parent / "data" / "rulesets" / campaign_id
+    d = get_data_dir() / "rulesets" / campaign_id
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 
 def get_images_dir(campaign_id: str) -> Path:
     """Return the directory where AI-generated images are stored for a campaign."""
-    d = Path(__file__).resolve().parent.parent / "data" / "images" / campaign_id
+    d = get_data_dir() / "images" / campaign_id
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -124,7 +125,7 @@ def delete_image(image_path: str) -> None:
     campaign_id = parts[2]
     filename = parts[3]
     
-    local_path = Path(__file__).resolve().parent.parent / "data" / "images" / campaign_id / filename
+    local_path = get_data_dir() / "images" / campaign_id / filename
     
     if local_path.exists() and local_path.is_file():
         try:

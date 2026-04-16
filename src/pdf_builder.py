@@ -17,13 +17,14 @@ from typing import Optional
 from fpdf import FPDF
 
 from .generator import GeneratedModule, generate_illustration
+from .paths import get_data_dir
 
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR = Path(__file__).resolve().parent.parent / "data" / "modules"
+OUTPUT_DIR = get_data_dir() / "modules"
 
 # Google Fonts directory — we'll download if needed
-FONTS_DIR = Path(__file__).resolve().parent.parent / "data" / "fonts"
+FONTS_DIR = get_data_dir() / "fonts"
 
 
 class ModulePDF(FPDF):

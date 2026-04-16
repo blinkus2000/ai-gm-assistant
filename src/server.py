@@ -30,6 +30,7 @@ from . import storage
 from . import ruleset_manager
 from . import generator
 from .pdf_builder import build_module_pdf
+from .paths import get_static_dir, get_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ async def genai_api_error_handler(request: Request, exc: google.genai.errors.API
 # Serve the static frontend
 # ---------------------------------------------------------------------------
 
-STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+STATIC_DIR = get_static_dir()
 
 
 @app.get("/")
@@ -59,7 +60,8 @@ async def serve_index():
 # Mount static files AFTER the root route
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-IMAGES_DIR = Path(__file__).resolve().parent.parent / "data" / "images"
+IMAGES_DIR = get_data_dir() / "images"
+IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
 
 
@@ -677,7 +679,7 @@ async def gen_module(campaign_id: str, req: GenerateModuleRequest):
 
 @app.get("/api/modules/{filename}/download")
 async def download_module(filename: str):
-    pdf_path = Path(__file__).resolve().parent.parent / "data" / "modules" / filename
+    pdf_path = get_data_dir() / "modules" / filename
     if not pdf_path.exists():
         raise HTTPException(status_code=404, detail="Module PDF not found")
     return FileResponse(
@@ -689,7 +691,7 @@ async def download_module(filename: str):
 
 @app.get("/api/modules")
 async def list_modules():
-    modules_dir = Path(__file__).resolve().parent.parent / "data" / "modules"
+    modules_dir = get_data_dir() / "modules"
     modules_dir.mkdir(parents=True, exist_ok=True)
     files = sorted(modules_dir.glob("*.pdf"), key=lambda p: p.stat().st_mtime, reverse=True)
     return [{"filename": f.name, "size": f.stat().st_size} for f in files]

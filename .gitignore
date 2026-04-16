@@ -43,3 +43,7 @@ service.ps1.bak
 # OS
 .DS_Store
 Thumbs.db
+
+# Installer build artifacts
+installer/build/
+installer/output/
