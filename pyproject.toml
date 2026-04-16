@@ -1,0 +1,53 @@
+[project]
+name = "ai-gm-assistant"
+version = "1.0.0"
+description = "AI-powered TTRPG Game Master Assistant with RAG-verified rules"
+requires-python = ">=3.10"
+
+# ---------------------------------------------------------------------------
+# Ruff — linter + formatter (replaces flake8, isort, pyflakes)
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "E501",   # line-length (handled by formatter)
+    "B008",   # function-call-in-default-argument (Pydantic Field uses this)
+    "RUF012", # mutable-class-default (Pydantic models)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+# ---------------------------------------------------------------------------
+# Mypy — type checking
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Start permissive, tighten later
+ignore_missing_imports = true  # Third-party stubs not always available
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"

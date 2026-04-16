@@ -11,26 +11,36 @@ import logging
 import shutil
 import time
 from datetime import datetime, timezone
-from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+import google.genai.errors
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-import google.genai.errors
 
+from . import generator, ruleset_manager, storage
 from .models import (
-    Campaign, CampaignSummary, CreateCampaignRequest, UpdateCampaignRequest,
-    Session, SessionStatus, NPC, NPCRole, Location, Faction, PlotThread, PlotThreadStatus,
-    Adversary, AdventureType, AdversaryType,
-    GenerateSessionRequest, GenerateNPCRequest, GenerateEncounterRequest,
-    GenerateRequest, GenerateModuleRequest, GenerateAdversaryRequest, AppSettings,
+    NPC,
+    Adversary,
+    AppSettings,
+    Campaign,
+    CampaignSummary,
+    CreateCampaignRequest,
     EnhanceRequest,
+    Faction,
+    GenerateAdversaryRequest,
+    GenerateEncounterRequest,
+    GenerateModuleRequest,
+    GenerateNPCRequest,
+    GenerateRequest,
+    GenerateSessionRequest,
+    Location,
+    NPCRole,
+    PlotThread,
+    Session,
+    UpdateCampaignRequest,
 )
-from . import storage
-from . import ruleset_manager
-from . import generator
+from .paths import get_data_dir, get_static_dir
 from .pdf_builder import build_module_pdf
-from .paths import get_static_dir, get_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -152,21 +162,21 @@ async def add_session(campaign_id: str, session: Session):
     campaign = _get_campaign(campaign_id)
     if session.number == 0:
         session.number = len(campaign.sessions) + 1
-    
+
     # Auto-create newly referenced NPCs
     existing_npc_names = {n.name.lower() for n in campaign.npcs}
     for npc_name in session.npcs_involved:
         if npc_name and npc_name.lower() not in existing_npc_names:
             campaign.npcs.append(NPC(name=npc_name))
             existing_npc_names.add(npc_name.lower())
-            
+
     # Auto-create newly referenced Locations
-    existing_loc_names = {l.name.lower() for l in campaign.locations}
+    existing_loc_names = {loc.name.lower() for loc in campaign.locations}
     for loc_name in session.locations_visited:
         if loc_name and loc_name.lower() not in existing_loc_names:
             campaign.locations.append(Location(name=loc_name))
             existing_loc_names.add(loc_name.lower())
-            
+
     campaign.sessions.append(session)
     campaign.updated_at = _now()
     storage.save_campaign(campaign)
@@ -263,7 +273,7 @@ async def update_location(campaign_id: str, location_id: str, updates: dict):
 @app.delete("/api/campaigns/{campaign_id}/locations/{location_id}")
 async def delete_location(campaign_id: str, location_id: str):
     campaign = _get_campaign(campaign_id)
-    campaign.locations = [l for l in campaign.locations if l.id != location_id]
+    campaign.locations = [loc for loc in campaign.locations if loc.id != location_id]
     campaign.updated_at = _now()
     storage.save_campaign(campaign)
     return {"status": "deleted"}
@@ -472,7 +482,7 @@ async def api_enhance_npc(campaign_id: str, npc_id: str, req: EnhanceRequest):
     result = generator.enhance_npc(campaign, npc.model_dump_json(), guidance_prompt=req.prompt)
     try:
         npc.role = NPCRole(result.role)
-    except:
+    except (ValueError, KeyError):
         pass
     npc.description = result.description
     if result.stats:
@@ -487,7 +497,7 @@ async def api_enhance_npc(campaign_id: str, npc_id: str, req: EnhanceRequest):
 @app.post("/api/campaigns/{campaign_id}/locations/{location_id}/enhance")
 async def api_enhance_location(campaign_id: str, location_id: str, req: EnhanceRequest):
     campaign = _get_campaign(campaign_id)
-    loc = next((l for l in campaign.locations if l.id == location_id), None)
+    loc = next((loc for loc in campaign.locations if loc.id == location_id), None)
     if not loc:
         raise HTTPException(status_code=404, detail="Location not found")
     result = generator.enhance_location(campaign, loc.model_dump_json(), guidance_prompt=req.prompt)
@@ -525,7 +535,7 @@ async def api_enhance_session(campaign_id: str, session_id: str, req: EnhanceReq
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     result = generator.enhance_session(campaign, session.model_dump_json(), guidance_prompt=req.prompt)
-    
+
     session.title = result.title
     session.summary = result.summary
     session.plan = result.plan
@@ -535,7 +545,7 @@ async def api_enhance_session(campaign_id: str, session_id: str, req: EnhanceReq
         session.locations_visited = list(set(session.locations_visited + result.locations_visited))
     if result.key_events:
         session.key_events = list(set(session.key_events + result.key_events))
-    
+
     session.updated_at = _now()
     campaign.updated_at = _now()
     storage.save_campaign(campaign)
@@ -548,68 +558,68 @@ async def api_generate_npc_image(campaign_id: str, npc_id: str):
     npc = next((n for n in campaign.npcs if n.id == npc_id), None)
     if not npc:
         raise HTTPException(status_code=404, detail="NPC not found")
-    
+
     # 1. Art Director stage
     logger.info("NPC Art Director starting for: %s", npc.name)
     art_prompt = generator.generate_art_prompt(campaign, f"Name: {npc.name}\nRole: {npc.role}\nDescription: {npc.description}")
-    
+
     # 2. Generation stage
     logger.info("Generating illustration for NPC %s with Art Director prompt: %s", npc.name, art_prompt)
     image_bytes = generator.generate_illustration(art_prompt, style="")
     if not image_bytes:
         raise HTTPException(status_code=500, detail="Image generation failed")
-    
+
     # 3. Cleanup old image if it exists
     if npc.image_path:
         storage.delete_image(npc.image_path)
-    
+
     # 4. Save with unique filename to avoid caching
     images_dir = storage.get_images_dir(campaign_id)
     filename = f"npc_{npc.id}_{hex(int(time.time()))[2:]}.png"
     filepath = images_dir / filename
     with open(filepath, "wb") as f:
         f.write(image_bytes)
-    
+
     # 5. Update NPC
     npc.image_path = f"/images/{campaign_id}/{filename}"
     campaign.updated_at = _now()
     storage.save_campaign(campaign)
-    
+
     return {"status": "ok", "image_path": npc.image_path}
 
 
 @app.post("/api/campaigns/{campaign_id}/locations/{location_id}/generate-image")
 async def api_generate_location_image(campaign_id: str, location_id: str):
     campaign = _get_campaign(campaign_id)
-    loc = next((l for l in campaign.locations if l.id == location_id), None)
+    loc = next((loc for loc in campaign.locations if loc.id == location_id), None)
     if not loc:
         raise HTTPException(status_code=404, detail="Location not found")
-    
+
     # 1. Art Director stage
     logger.info("Location Art Director starting for: %s", loc.name)
     art_prompt = generator.generate_art_prompt(campaign, f"Name: {loc.name}\nDescription: {loc.description}")
-    
+
     # 2. Generation stage
     logger.info("Generating illustration for Location %s with Art Director prompt: %s", loc.name, art_prompt)
     image_bytes = generator.generate_illustration(art_prompt, style="")
     if not image_bytes:
         raise HTTPException(status_code=500, detail="Image generation failed")
-    
+
     # 3. Cleanup old image
     if loc.image_path:
         storage.delete_image(loc.image_path)
-    
+
     # 4. Save unique
     images_dir = storage.get_images_dir(campaign_id)
     filename = f"loc_{loc.id}_{hex(int(time.time()))[2:]}.png"
     filepath = images_dir / filename
     with open(filepath, "wb") as f:
         f.write(image_bytes)
-    
+
     # 5. Update Location
     loc.image_path = f"/images/{campaign_id}/{filename}"
     storage.save_campaign(campaign)
-    
+
     return {"status": "ok", "image_path": loc.image_path}
 
 
@@ -619,33 +629,33 @@ async def api_generate_adversary_image(campaign_id: str, adversary_id: str):
     adv = next((a for a in campaign.adversaries if a.id == adversary_id), None)
     if not adv:
         raise HTTPException(status_code=404, detail="Adversary not found")
-    
+
     # 1. Art Director stage
     logger.info("Adversary Art Director starting for: %s", adv.name)
     art_prompt = generator.generate_art_prompt(campaign, f"Name: {adv.name}\nType: {adv.adversary_type}\nDescription: {adv.description}")
-    
+
     # 2. Generation stage
     logger.info("Generating illustration for Adversary %s with Art Director prompt: %s", adv.name, art_prompt)
     image_bytes = generator.generate_illustration(art_prompt, style="")
     if not image_bytes:
         raise HTTPException(status_code=500, detail="Image generation failed")
-    
+
     # 3. Cleanup old image
     if adv.image_path:
         storage.delete_image(adv.image_path)
-    
+
     # 4. Save unique
     images_dir = storage.get_images_dir(campaign_id)
     filename = f"adv_{adv.id}_{hex(int(time.time()))[2:]}.png"
     filepath = images_dir / filename
     with open(filepath, "wb") as f:
         f.write(image_bytes)
-    
+
     # 5. Update Adversary
     adv.image_path = f"/images/{campaign_id}/{filename}"
     campaign.updated_at = _now()
     storage.save_campaign(campaign)
-    
+
     return {"status": "ok", "image_path": adv.image_path}
 
 

@@ -8,25 +8,26 @@ actual uploaded PDFs. Hallucinating rules is structurally prevented.
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 
+from . import storage
 from .models import (
-    Campaign, Session, NPC, Location, PlotThread, NPCRole, AppSettings,
-    Adversary, AdventureType, AdversaryType
+    AdventureType,
+    AdversaryType,
+    Campaign,
+    NPCRole,
 )
 from .ruleset_manager import get_file_search_tool
-from . import storage
 
 logger = logging.getLogger(__name__)
 
 # Singleton client
-_client: Optional[genai.Client] = None
+_client: genai.Client | None = None
 
 
 def _get_client() -> genai.Client:
@@ -207,7 +208,7 @@ def build_campaign_context(campaign: Campaign) -> str:
             parts.append(f"- **{f.name}:** {f.description[:200]}")
 
     # Adversaries
-    if hasattr(campaign, 'adversaries') and campaign.adversaries:
+    if campaign.adversaries:
         parts.append("\n## Primary Adversaries")
         for adv in campaign.adversaries:
             parts.append(f"- **{adv.name}** ({adv.adversary_type.value}): {adv.description[:200]}")
@@ -270,7 +271,7 @@ def generate_with_retry(
     config = _build_config(campaign, response_schema)
     max_retries = 3
     current_prompt = full_prompt
-    
+
     for attempt in range(max_retries):
         response = client.models.generate_content(
             model=_get_reasoning_model(),
@@ -287,36 +288,35 @@ def generate_with_retry(
             current_prompt += f"\n\nERROR: The JSON you returned was invalid: {e}\nPlease fix the JSON. Use proper escaping for quotes. Return ONLY raw valid JSON."
 
 def generate_session(
-    campaign: Campaign, 
-    prompt: str, 
-    session_number: int | None = None, 
+    campaign: Campaign,
+    prompt: str,
+    session_number: int | None = None,
     extra_context: str = "",
     selected_npc_ids: list[str] | None = None,
     selected_location_ids: list[str] | None = None,
     selected_plot_thread_ids: list[str] | None = None,
 ) -> GeneratedSession:
     """Generate a full session plan grounded in campaign context and rulesets."""
-    client = _get_client()
     context = build_campaign_context(campaign)
 
     next_num = session_number or (len(campaign.sessions) + 1)
-    
+
     constraint_parts = []
     if selected_npc_ids:
         npcs = [n for n in campaign.npcs if n.id in selected_npc_ids]
         if npcs:
             constraint_parts.append("**MANDATORY NPCs TO FEATURE:**\n" + "\n".join(f"- {n.name}: {n.description}" for n in npcs))
     if selected_location_ids:
-        locs = [l for l in campaign.locations if l.id in selected_location_ids]
+        locs = [loc for loc in campaign.locations if loc.id in selected_location_ids]
         if locs:
-            constraint_parts.append("**MANDATORY LOCATIONS TO FEATURE:**\n" + "\n".join(f"- {l.name}: {l.description}" for l in locs))
+            constraint_parts.append("**MANDATORY LOCATIONS TO FEATURE:**\n" + "\n".join(f"- {loc.name}: {loc.description}" for loc in locs))
     if selected_plot_thread_ids:
         plots = [p for p in campaign.plot_threads if p.id in selected_plot_thread_ids]
         if plots:
             constraint_parts.append("**MANDATORY PLOT THREADS TO ADVANCE:**\n" + "\n".join(f"- {p.title}: {p.description}" for p in plots))
-            
+
     constraints_text = "\n\n".join(constraint_parts)
-    
+
     full_prompt = f"""{context}
 
 ---
@@ -340,7 +340,6 @@ to run directly at the table.
 
 def generate_npc(campaign: Campaign, prompt: str, role: NPCRole | None = None, extra_context: str = "") -> GeneratedNPC:
     """Generate an NPC with verified stats."""
-    client = _get_client()
     context = build_campaign_context(campaign)
 
     role_hint = f" Their role should be: {role.value}." if role else ""
@@ -372,7 +371,6 @@ def generate_encounter(
     extra_context: str = "",
 ) -> GeneratedEncounter:
     """Generate a combat or social encounter with verified stats."""
-    client = _get_client()
     context = build_campaign_context(campaign)
 
     party_info = ""
@@ -404,7 +402,6 @@ Include tactical notes for how enemies will behave.
 
 def generate_location(campaign: Campaign, prompt: str, extra_context: str = "") -> GeneratedLocation:
     """Generate a location description."""
-    client = _get_client()
     context = build_campaign_context(campaign)
 
     full_prompt = f"""{context}
@@ -427,8 +424,6 @@ and adventure hooks tied to the campaign's existing plot threads.
 
 def ask_rules(campaign: Campaign, question: str) -> RuleAnswer:
     """Query the ruleset directly. Returns verified answer with citations."""
-    client = _get_client()
-
     if not campaign.ruleset_store_name:
         return RuleAnswer(
             answer="No ruleset PDFs have been uploaded for this campaign. Please upload your ruleset PDFs first.",
@@ -450,7 +445,6 @@ If the answer cannot be found in the provided materials, say so explicitly.
 
 def generate_module(campaign: Campaign, prompt: str, title: str | None = None, extra_context: str = "") -> GeneratedModule:
     """Generate a full adventure module with section breakdowns."""
-    client = _get_client()
     context = build_campaign_context(campaign)
 
     full_prompt = f"""{context}
@@ -551,7 +545,7 @@ def generate_art_prompt(campaign: Campaign, entity_description: str) -> str:
     """Use a reasoning model as an Art Director to create a vivid image prompt."""
     client = _get_client()
     context = build_campaign_context(campaign)
-    
+
     full_prompt = f"""
 Act as a Lead Art Director for a TTRPG campaign. Your job is to transform a simple character or location description into a high-fidelity, stylistically consistent prompt for a professional image generator (like Imagen 3).
 
@@ -661,9 +655,9 @@ def generate_adversary(
         if npcs:
             constraint_parts.append("**MANDATORY NPCs TO CONNECT:**\n" + "\n".join(f"- {n.name}" for n in npcs))
     if selected_location_ids:
-        locs = [l for l in campaign.locations if l.id in selected_location_ids]
+        locs = [loc for loc in campaign.locations if loc.id in selected_location_ids]
         if locs:
-            constraint_parts.append("**MANDATORY LOCATIONS TO CONNECT:**\n" + "\n".join(f"- {l.name}" for l in locs))
+            constraint_parts.append("**MANDATORY LOCATIONS TO CONNECT:**\n" + "\n".join(f"- {loc.name}" for loc in locs))
     if selected_plot_thread_ids:
         plots = [p for p in campaign.plot_threads if p.id in selected_plot_thread_ids]
         if plots:

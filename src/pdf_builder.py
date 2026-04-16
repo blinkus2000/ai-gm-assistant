@@ -12,7 +12,6 @@ import io
 import logging
 import uuid
 from pathlib import Path
-from typing import Optional
 
 from fpdf import FPDF
 
@@ -145,7 +144,6 @@ class ModulePDF(FPDF):
                 text_content = stripped.lstrip("> ")
                 self.set_fill_color(245, 235, 224)
                 self.set_draw_color(123, 45, 38)
-                x = self.get_x()
                 y = self.get_y()
                 # Draw left border
                 self.set_line_width(1)

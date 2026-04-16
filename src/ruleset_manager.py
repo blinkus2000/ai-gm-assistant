@@ -11,7 +11,6 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Optional
 
 from google import genai
 from google.genai import types
@@ -21,7 +20,7 @@ from .models import RulesetInfo
 logger = logging.getLogger(__name__)
 
 # Singleton client — uses GEMINI_API_KEY env var automatically
-_client: Optional[genai.Client] = None
+_client: genai.Client | None = None
 
 
 def _get_client() -> genai.Client:

@@ -413,6 +413,13 @@
     <!-- Toast container -->
     <div class="toast-container" id="toast-container"></div>
 
-    <script src="/static/app.js?v=6"></script>
+    <script>
+        // Auto cache-bust: append server start timestamp so reloads after updates get fresh JS
+        (function() {
+            var s = document.createElement('script');
+            s.src = '/static/app.js?v=' + Date.now();
+            document.body.appendChild(s);
+        })();
+    </script>
 </body>
 </html>

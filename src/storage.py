@@ -9,11 +9,9 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
-from typing import Optional
 
-from .models import Campaign, CampaignSummary, AppSettings
+from .models import AppSettings, Campaign, CampaignSummary
 from .paths import get_data_dir
 
 logger = logging.getLogger(__name__)
@@ -39,7 +37,7 @@ def save_campaign(campaign: Campaign) -> None:
     path.write_text(campaign.model_dump_json(indent=2), encoding="utf-8")
 
 
-def load_campaign(campaign_id: str) -> Optional[Campaign]:
+def load_campaign(campaign_id: str) -> Campaign | None:
     """Load a campaign from disk, or return None if not found."""
     path = _campaign_path(campaign_id)
     if not path.exists():
@@ -115,18 +113,18 @@ def delete_image(image_path: str) -> None:
     """Safely delete an image file from the data/images directory."""
     if not image_path:
         return
-        
+
     # image_path is like "/images/<campaign_id>/<filename>.png"
     # We need to translate this to a local path
     parts = image_path.split("/")
     if len(parts) < 4 or parts[1] != "images":
         return
-        
+
     campaign_id = parts[2]
     filename = parts[3]
-    
+
     local_path = get_data_dir() / "images" / campaign_id / filename
-    
+
     if local_path.exists() and local_path.is_file():
         try:
             local_path.unlink()

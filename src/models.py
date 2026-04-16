@@ -11,10 +11,9 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -78,7 +77,7 @@ class NPC(BaseModel):
     role: NPCRole = NPCRole.NEUTRAL
     stats: dict[str, Any] = Field(default_factory=dict)
     notes: str = ""
-    image_path: Optional[str] = None
+    image_path: str | None = None
     created_at: str = Field(default_factory=_now)
 
 
@@ -89,7 +88,7 @@ class Location(BaseModel):
     points_of_interest: list[str] = Field(default_factory=list)
     hooks: list[str] = Field(default_factory=list)
     notes: str = ""
-    image_path: Optional[str] = None
+    image_path: str | None = None
     created_at: str = Field(default_factory=_now)
 
 
@@ -135,7 +134,7 @@ class RulesetInfo(BaseModel):
     """Metadata about an uploaded ruleset PDF (stored locally, not the file content)."""
     file_name: str
     display_name: str
-    gemini_file_name: Optional[str] = None  # Gemini File Search store file ref
+    gemini_file_name: str | None = None  # Gemini File Search store file ref
     uploaded_at: str = Field(default_factory=_now)
 
 
@@ -147,7 +146,7 @@ class Adversary(BaseModel):
     adversary_type: AdversaryType = AdversaryType.HEAVY_HITTER
     steps: list[str] = Field(default_factory=list)
     notes: str = ""
-    image_path: Optional[str] = None
+    image_path: str | None = None
     created_at: str = Field(default_factory=_now)
 
 
@@ -160,7 +159,7 @@ class Campaign(BaseModel):
     name: str
     game_system: str = ""          # e.g. "D&D 5e", "Pathfinder 2e"
     setting: str = ""              # Campaign world / setting description
-    ruleset_store_name: Optional[str] = None   # Gemini File Search Store ID
+    ruleset_store_name: str | None = None   # Gemini File Search Store ID
     rulesets: list[RulesetInfo] = Field(default_factory=list)
     sessions: list[Session] = Field(default_factory=list)
     npcs: list[NPC] = Field(default_factory=list)
@@ -196,27 +195,27 @@ class CreateCampaignRequest(BaseModel):
 
 
 class UpdateCampaignRequest(BaseModel):
-    name: Optional[str] = None
-    game_system: Optional[str] = None
-    setting: Optional[str] = None
-    notes: Optional[str] = None
+    name: str | None = None
+    game_system: str | None = None
+    setting: str | None = None
+    notes: str | None = None
 
 
 class GenerateRequest(BaseModel):
     """Generic generation request body."""
     prompt: str
-    context: Optional[str] = None  # Additional context the GM wants to provide
+    context: str | None = None  # Additional context the GM wants to provide
 
 
 class EnhanceRequest(BaseModel):
     """Request body for enhancing an existing entity."""
-    prompt: Optional[str] = None
+    prompt: str | None = None
 
 
 class GenerateSessionRequest(BaseModel):
     prompt: str
-    session_number: Optional[int] = None
-    context: Optional[str] = None
+    session_number: int | None = None
+    context: str | None = None
     selected_npc_ids: list[str] = Field(default_factory=list)
     selected_location_ids: list[str] = Field(default_factory=list)
     selected_plot_thread_ids: list[str] = Field(default_factory=list)
@@ -224,30 +223,30 @@ class GenerateSessionRequest(BaseModel):
 
 class GenerateNPCRequest(BaseModel):
     prompt: str
-    role: Optional[NPCRole] = None
-    context: Optional[str] = None
+    role: NPCRole | None = None
+    context: str | None = None
 
 
 class GenerateEncounterRequest(BaseModel):
     prompt: str
-    party_level: Optional[int] = None
-    party_size: Optional[int] = None
-    difficulty: Optional[str] = None
-    context: Optional[str] = None
+    party_level: int | None = None
+    party_size: int | None = None
+    difficulty: str | None = None
+    context: str | None = None
 
 
 class GenerateModuleRequest(BaseModel):
     prompt: str
-    title: Optional[str] = None
+    title: str | None = None
     include_illustrations: bool = True
-    context: Optional[str] = None
+    context: str | None = None
 
 
 class GenerateAdversaryRequest(BaseModel):
     prompt: str
     adventure_type: AdventureType
     adversary_type: AdversaryType
-    context: Optional[str] = None
+    context: str | None = None
     selected_npc_ids: list[str] = Field(default_factory=list)
     selected_location_ids: list[str] = Field(default_factory=list)
     selected_plot_thread_ids: list[str] = Field(default_factory=list)

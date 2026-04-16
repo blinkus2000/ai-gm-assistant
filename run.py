@@ -48,9 +48,19 @@ if __name__ == "__main__":
     # Auto-open browser
     threading.Thread(target=_open_browser, args=(port,), daemon=True).start()
 
-    uvicorn.run(
-        app,
-        host="127.0.0.1",
-        port=port,
-        reload=not frozen,  # reload in dev, not in frozen mode
-    )
+    if frozen:
+        # Frozen mode: pass app object directly (string import breaks in PyInstaller)
+        uvicorn.run(
+            app,
+            host="127.0.0.1",
+            port=port,
+            reload=False,
+        )
+    else:
+        # Dev mode: use string import so reload works (required by uvicorn 0.44+)
+        uvicorn.run(
+            "src.server:app",
+            host="127.0.0.1",
+            port=port,
+            reload=True,
+        )
