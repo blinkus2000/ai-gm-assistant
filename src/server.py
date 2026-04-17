@@ -179,6 +179,10 @@ async def update_settings(settings: AppSettings):
 # Sessions
 # ---------------------------------------------------------------------------
 
+@app.get("/api/campaigns/{campaign_id}/sessions")
+async def list_sessions(campaign_id: str, limit: int = 50, offset: int = 0):
+    return storage.list_campaign_sessions(campaign_id, limit=limit, offset=offset)
+
 @app.post("/api/campaigns/{campaign_id}/sessions")
 async def add_session(campaign_id: str, session: Session):
     campaign = _get_campaign(campaign_id)
@@ -223,6 +227,10 @@ async def delete_session(campaign_id: str, session_id: str):
 # NPCs
 # ---------------------------------------------------------------------------
 
+@app.get("/api/campaigns/{campaign_id}/npcs")
+async def list_npcs(campaign_id: str, limit: int = 50, offset: int = 0):
+    return storage.list_campaign_npcs(campaign_id, limit=limit, offset=offset)
+
 @app.post("/api/campaigns/{campaign_id}/npcs")
 async def add_npc(campaign_id: str, npc: NPC):
     campaign = _get_campaign(campaign_id)
@@ -249,6 +257,10 @@ async def delete_npc(campaign_id: str, npc_id: str):
 # ---------------------------------------------------------------------------
 # Locations
 # ---------------------------------------------------------------------------
+
+@app.get("/api/campaigns/{campaign_id}/locations")
+async def list_locations(campaign_id: str, limit: int = 50, offset: int = 0):
+    return storage.list_campaign_locations(campaign_id, limit=limit, offset=offset)
 
 @app.post("/api/campaigns/{campaign_id}/locations")
 async def add_location(campaign_id: str, location: Location):
