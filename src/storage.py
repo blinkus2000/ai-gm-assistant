@@ -12,7 +12,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from .models import AppSettings, Campaign, CampaignSummary
+from .models import AppSettings, Campaign, CampaignSummary, Location, NPC, Session
 from .paths import get_data_dir
 
 logger = logging.getLogger(__name__)
