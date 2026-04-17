@@ -413,13 +413,7 @@
     <!-- Toast container -->
     <div class="toast-container" id="toast-container"></div>
 
-    <script>
-        // Auto cache-bust: append server start timestamp so reloads after updates get fresh JS
-        (function() {
-            var s = document.createElement('script');
-            s.src = '/static/app.js?v=' + Date.now();
-            document.body.appendChild(s);
-        })();
-    </script>
+    <script src="/static/libs/marked.min.js?v=2"></script>
+    <script type="module" src="/static/js/main.js?v=6"></script>
 </body>
 </html>
