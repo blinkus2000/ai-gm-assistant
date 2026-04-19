@@ -25,6 +25,8 @@ from .models import (
     AppSettings,
     Campaign,
     CampaignSummary,
+    ChatMessage,
+    ChatRequest,
     CreateCampaignRequest,
     EnhanceRequest,
     Faction,
@@ -693,3 +695,84 @@ async def list_modules():
     modules_dir.mkdir(parents=True, exist_ok=True)
     files = sorted(modules_dir.glob("*.pdf"), key=lambda p: p.stat().st_mtime, reverse=True)
     return [{"filename": f.name, "size": f.stat().st_size} for f in files]
+
+
+@app.delete("/api/modules/{filename}")
+async def delete_module(filename: str):
+    pdf_path = get_data_dir() / "modules" / filename
+    if not pdf_path.exists():
+        raise HTTPException(status_code=404, detail="Module PDF not found")
+    pdf_path.unlink()
+    return {"status": "deleted"}
+
+
+# ---------------------------------------------------------------------------
+# Campaign Chatbot
+# ---------------------------------------------------------------------------
+
+@app.post("/api/campaigns/{campaign_id}/chat")
+async def chat(campaign_id: str, req: ChatRequest):
+    campaign = _get_campaign(campaign_id)
+    history = storage.load_chat_history(campaign_id, limit=30)
+
+    user_msg = ChatMessage(campaign_id=campaign_id, role="user", content=req.message)
+    storage.save_chat_message(user_msg)
+
+    history_dicts = [{"role": m.role, "content": m.content} for m in history]
+    response = generator.chat_with_campaign(campaign, req.message, history_dicts)
+
+    assistant_msg = ChatMessage(
+        campaign_id=campaign_id,
+        role="assistant",
+        content=response.message,
+        proposed_action=response.proposed_action,
+        action_status="pending" if response.proposed_action else None,
+    )
+    storage.save_chat_message(assistant_msg)
+    return assistant_msg.model_dump()
+
+
+@app.get("/api/campaigns/{campaign_id}/chat/history")
+async def get_chat_history(campaign_id: str, limit: int = 100):
+    return [m.model_dump() for m in storage.load_chat_history(campaign_id, limit=limit)]
+
+
+@app.post("/api/campaigns/{campaign_id}/chat/approve/{message_id}")
+async def approve_chat_action(campaign_id: str, message_id: str):
+    msg = storage.get_chat_message(message_id)
+    if not msg or not msg.proposed_action:
+        raise HTTPException(status_code=404, detail="Message or proposed action not found")
+
+    action = msg.proposed_action
+    campaign = _get_campaign(campaign_id)
+
+    try:
+        if action.action_type == "add_npc":
+            campaign.npcs.append(NPC.model_validate(action.data))
+        elif action.action_type == "add_location":
+            campaign.locations.append(Location.model_validate(action.data))
+        elif action.action_type == "add_plot_thread":
+            campaign.plot_threads.append(PlotThread.model_validate(action.data))
+        elif action.action_type == "add_adversary":
+            campaign.adversaries.append(Adversary.model_validate(action.data))
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown action_type: {action.action_type}")
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Could not apply action: {e}") from e
+
+    campaign.updated_at = _now()
+    storage.save_campaign(campaign)
+    storage.update_chat_action_status(message_id, "approved")
+    return {"status": "approved"}
+
+
+@app.post("/api/campaigns/{campaign_id}/chat/reject/{message_id}")
+async def reject_chat_action(campaign_id: str, message_id: str):
+    storage.update_chat_action_status(message_id, "rejected")
+    return {"status": "rejected"}
+
+
+@app.delete("/api/campaigns/{campaign_id}/chat/history")
+async def clear_chat_history(campaign_id: str):
+    storage.clear_chat_history(campaign_id)
+    return {"status": "cleared"}

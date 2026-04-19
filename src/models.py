@@ -309,6 +309,37 @@ class GenerateAdversaryRequest(BaseModel):
     selected_npc_ids: list[str] = Field(default_factory=list)
     selected_location_ids: list[str] = Field(default_factory=list)
     selected_plot_thread_ids: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Chat
+# ---------------------------------------------------------------------------
+
+class ProposedAction(BaseModel):
+    action_type: str  # add_npc, add_location, add_plot_thread, add_adversary
+    entity_type: str  # npc, location, plot_thread, adversary
+    data: dict[str, Any]
+    description: str  # human-readable summary, e.g. "Add NPC Gareth the Blacksmith (ally)"
+
+
+class ChatMessage(BaseModel):
+    id: str = Field(default_factory=_new_id)
+    campaign_id: str
+    role: str  # "user" or "assistant"
+    content: str
+    proposed_action: ProposedAction | None = None
+    action_status: str | None = None  # "pending", "approved", "rejected"
+    created_at: str = Field(default_factory=_now)
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+class ApproveChatActionRequest(BaseModel):
+    message_id: str
+
+
 # ---------------------------------------------------------------------------
 # App Settings
 # ---------------------------------------------------------------------------

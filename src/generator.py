@@ -21,6 +21,7 @@ from .models import (
     AdversaryType,
     Campaign,
     NPCRole,
+    ProposedAction,
 )
 from .ruleset_manager import get_file_search_tool
 
@@ -278,7 +279,7 @@ def generate_with_retry(
                 logger.error(f"JSON validation failed on final attempt:\n{text}")
                 raise
             current_prompt += f"\n\nERROR: The JSON you returned was invalid: {e}\nPlease fix the JSON. Use proper escaping for quotes. Return ONLY raw valid JSON."
-    
+
     raise ValueError("Max retries exceeded without returning")
 
 def generate_session(
@@ -575,6 +576,167 @@ def generate_illustration(prompt: str, style: str = "fantasy illustration, detai
 
     return None
 
+
+
+CHATBOT_SYSTEM_INSTRUCTION = """You are a knowledgeable Game Master assistant embedded in the campaign manager.
+You have full access to the campaign's NPCs, locations, plot threads, sessions, adversaries, and rulesets.
+
+CRITICAL RULES:
+1. If rulesets are uploaded, use file_search to look up ANY rule, stat, or mechanic before referencing it.
+2. NEVER hallucinate rules or stats. If a rule cannot be found, say so explicitly.
+3. Maintain strict continuity with the campaign data provided — reference specific entities by name.
+4. Only propose a campaign change (proposed_action) when the GM explicitly asks to add new content.
+   Leave proposed_action null for all informational or discussion responses.
+5. When proposing an action, use one of these action_types with the matching data fields:
+   - add_npc: {name, description, role (ally/villain/neutral/patron/rival/other), stats (dict), notes}
+   - add_location: {name, description, points_of_interest (list[str]), hooks (list[str]), notes}
+   - add_plot_thread: {title, description, notes}
+   - add_adversary: {name, description, adventure_type (thwarting/collecting/delivering/discovery), adversary_type (heavy_hitter/racer/chaser/shadow), steps (list of exactly 5 strings), notes}
+6. Keep responses concise and GM-focused. Avoid unnecessary padding.
+"""
+
+CHATBOT_SYSTEM_INSTRUCTION_NO_RULES = """You are a knowledgeable Game Master assistant embedded in the campaign manager.
+You have full access to the campaign's NPCs, locations, plot threads, sessions, and adversaries.
+
+NOTE: No ruleset PDFs have been uploaded, so you cannot verify game mechanics or stat blocks.
+For rules questions, remind the GM to upload their ruleset PDFs.
+
+RULES:
+1. Only propose a campaign change (proposed_action) when the GM explicitly asks to add new content.
+   Leave proposed_action null for all informational or discussion responses.
+2. When proposing an action, use one of these action_types with the matching data fields:
+   - add_npc: {name, description, role (ally/villain/neutral/patron/rival/other), stats (dict), notes}
+   - add_location: {name, description, points_of_interest (list[str]), hooks (list[str]), notes}
+   - add_plot_thread: {title, description, notes}
+   - add_adversary: {name, description, adventure_type (thwarting/collecting/delivering/discovery), adversary_type (heavy_hitter/racer/chaser/shadow), steps (list of exactly 5 strings), notes}
+3. Keep responses concise and GM-focused.
+"""
+
+
+class ChatbotResponse(BaseModel):
+    message: str = Field(description="Your conversational response to the GM")
+    proposed_action: ProposedAction | None = Field(
+        default=None,
+        description="Include ONLY when the GM explicitly asks to add new content. Leave null for questions, discussion, or analysis."
+    )
+
+
+def _build_chat_config(campaign: Campaign) -> types.GenerateContentConfig:
+    """Build generation config for the chatbot with chatbot-specific system instruction."""
+    tools: list[Any] = []
+    system = CHATBOT_SYSTEM_INSTRUCTION_NO_RULES
+
+    if campaign.ruleset_store_name:
+        tools.append(get_file_search_tool(campaign.ruleset_store_name))
+        system = CHATBOT_SYSTEM_INSTRUCTION
+
+    import json as _json
+    schema_json = _json.dumps(ChatbotResponse.model_json_schema(), indent=2)
+
+    if tools:
+        system += f"\n\nIMPORTANT: Return ONLY raw JSON conforming to this schema:\n```json\n{schema_json}\n```"
+        return types.GenerateContentConfig(system_instruction=system, tools=tools)
+
+    return types.GenerateContentConfig(
+        system_instruction=system,
+        tools=None,
+        response_mime_type="application/json",
+        response_json_schema=ChatbotResponse.model_json_schema(),
+    )
+
+
+def build_chat_campaign_context(campaign: Campaign) -> str:
+    """Build campaign context for chatbot including entity IDs."""
+    parts = [
+        f"# Campaign: {campaign.name}",
+        f"**Game System:** {campaign.game_system or 'Not specified'}",
+        f"**Setting:** {campaign.setting or 'Not specified'}",
+    ]
+    if campaign.notes:
+        parts.append(f"**Notes:** {campaign.notes}")
+
+    if campaign.sessions:
+        parts.append("\n## Sessions (most recent first)")
+        for s in reversed(campaign.sessions[-8:]):
+            parts.append(f"- Session {s.number}: **{s.title}** [{s.status.value}]")
+            if s.summary:
+                parts.append(f"  {s.summary[:200]}")
+
+    if campaign.plot_threads:
+        parts.append("\n## Plot Threads")
+        for p in campaign.plot_threads:
+            parts.append(f"- **{p.title}** [{p.status.value}]: {p.description[:200]}")
+
+    if campaign.npcs:
+        parts.append("\n## NPCs")
+        for n in campaign.npcs:
+            parts.append(f"- **{n.name}** ({n.role.value}): {n.description[:250]}")
+
+    if campaign.locations:
+        parts.append("\n## Locations")
+        for loc in campaign.locations:
+            parts.append(f"- **{loc.name}**: {loc.description[:250]}")
+
+    if campaign.factions:
+        parts.append("\n## Factions")
+        for f in campaign.factions:
+            parts.append(f"- **{f.name}**: {f.description[:200]}")
+
+    if campaign.adversaries:
+        parts.append("\n## Adversaries")
+        for adv in campaign.adversaries:
+            parts.append(f"- **{adv.name}** ({adv.adversary_type.value}): {adv.description[:200]}")
+
+    return "\n".join(parts)
+
+
+def chat_with_campaign(
+    campaign: Campaign,
+    user_message: str,
+    history: list[dict],
+) -> ChatbotResponse:
+    """Chat with the GM about the campaign. Optionally proposes structured edits."""
+    context = build_chat_campaign_context(campaign)
+    client = get_client()
+    config = _build_chat_config(campaign)
+
+    history_text = ""
+    if history:
+        lines = []
+        for msg in history[-12:]:
+            label = "GM" if msg["role"] == "user" else "Assistant"
+            lines.append(f"**{label}:** {msg['content']}")
+        history_text = "\n".join(lines)
+
+    full_prompt = f"""{context}
+
+---
+
+## Conversation
+{history_text if history_text else "(Start of conversation)"}
+**GM:** {user_message}
+
+Respond to the GM. If they are asking to add something new to the campaign, include a proposed_action. Otherwise leave proposed_action null.
+"""
+
+    max_retries = 3
+    current_prompt = full_prompt
+    for attempt in range(max_retries):
+        response = client.models.generate_content(
+            model=_get_reasoning_model(),
+            contents=current_prompt,
+            config=config,
+        )
+        text = _clean_json(response.text)
+        try:
+            return ChatbotResponse.model_validate_json(text)
+        except Exception as e:
+            if attempt == max_retries - 1:
+                logger.error("Chat JSON validation failed: %s\n%s", e, text)
+                return ChatbotResponse(message=response.text or "I encountered an error processing the response.", proposed_action=None)
+            current_prompt += f"\n\nERROR: Invalid JSON returned: {e}\nReturn ONLY valid JSON conforming to the schema."
+
+    return ChatbotResponse(message="I encountered an error. Please try again.", proposed_action=None)
 
 
 ADVERSARY_TEMPLATES = {

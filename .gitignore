@@ -47,3 +47,6 @@ Thumbs.db
 # Installer build artifacts
 installer/build/
 
+# Cowork/Claude sandbox wheel cache (populated by scripts/bootstrap-sandbox-wheels.ps1)
+vendor/
+

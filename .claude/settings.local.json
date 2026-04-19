@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep *)",
+      "Bash(python -c \"from src.storage import save_chat_message, load_chat_history, clear_chat_history; print\\('storage OK'\\)\")",
+      "Bash(python -c \"from src.generator import chat_with_campaign, ChatbotResponse; print\\('generator OK'\\)\")",
+      "Bash(python -c \"from src.server import app; print\\('server OK'\\)\")",
+      "Bash(ruff check *)",
+      "Bash(grep -v \"^Found\\\\|^$\")",
+      "Bash(python -m pytest tests/ -x -q)"
+    ]
+  }
+}

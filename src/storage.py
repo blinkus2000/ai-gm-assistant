@@ -12,7 +12,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from .models import AppSettings, Campaign, CampaignSummary, Location, NPC, Session
+from .models import AppSettings, Campaign, CampaignSummary, ChatMessage, Location, NPC, Session
 from .paths import get_data_dir
 
 logger = logging.getLogger(__name__)
@@ -348,6 +348,89 @@ def list_campaign_locations(campaign_id: str, limit: int = 50, offset: int = 0) 
         return result
     finally:
         conn.close()
+
+def _ensure_chat_table(conn: sqlite3.Connection) -> None:
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id TEXT PRIMARY KEY,
+            campaign_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            proposed_action TEXT,
+            action_status TEXT,
+            created_at TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+
+
+def save_chat_message(msg: ChatMessage) -> None:
+    conn = get_conn()
+    _ensure_chat_table(conn)
+    try:
+        action_json = msg.proposed_action.model_dump_json() if msg.proposed_action else None
+        conn.execute(
+            "INSERT INTO chat_messages (id, campaign_id, role, content, proposed_action, action_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (msg.id, msg.campaign_id, msg.role, msg.content, action_json, msg.action_status, msg.created_at),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def load_chat_history(campaign_id: str, limit: int = 50) -> list[ChatMessage]:
+    conn = get_conn()
+    _ensure_chat_table(conn)
+    try:
+        rows = conn.execute(
+            "SELECT * FROM chat_messages WHERE campaign_id = ? ORDER BY created_at ASC LIMIT ?",
+            (campaign_id, limit),
+        ).fetchall()
+        result = []
+        for row in rows:
+            d = dict(row)
+            if d.get("proposed_action"):
+                d["proposed_action"] = json.loads(d["proposed_action"])
+            result.append(ChatMessage.model_validate(d))
+        return result
+    finally:
+        conn.close()
+
+
+def get_chat_message(message_id: str) -> ChatMessage | None:
+    conn = get_conn()
+    _ensure_chat_table(conn)
+    try:
+        row = conn.execute("SELECT * FROM chat_messages WHERE id = ?", (message_id,)).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        if d.get("proposed_action"):
+            d["proposed_action"] = json.loads(d["proposed_action"])
+        return ChatMessage.model_validate(d)
+    finally:
+        conn.close()
+
+
+def update_chat_action_status(message_id: str, status: str) -> None:
+    conn = get_conn()
+    _ensure_chat_table(conn)
+    try:
+        conn.execute("UPDATE chat_messages SET action_status = ? WHERE id = ?", (status, message_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def clear_chat_history(campaign_id: str) -> None:
+    conn = get_conn()
+    _ensure_chat_table(conn)
+    try:
+        conn.execute("DELETE FROM chat_messages WHERE campaign_id = ?", (campaign_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
 
 def list_campaign_sessions(campaign_id: str, limit: int = 50, offset: int = 0) -> list[Session]:
     conn = get_conn()

@@ -357,13 +357,23 @@ export async function renderModules() {
         list.innerHTML = '';
         
         modules.forEach(m => {
+            const deleteBtn = el('button', { className: 'btn btn-sm btn-danger', textContent: '🗑️ Delete' });
+            deleteBtn.addEventListener('click', async () => {
+                if (!confirm(`Delete module "${m.filename}"?`)) return;
+                try {
+                    await api(`/modules/${encodeURIComponent(m.filename)}`, { method: 'DELETE' });
+                    renderModules();
+                } catch (e) { /* toast shown by api() */ }
+            });
+
             list.appendChild(el('div', { className: 'ruleset-item' },
                 el('div', { className: 'file-icon', textContent: '📕' }),
                 el('div', { className: 'file-info' },
                     el('div', { className: 'file-name', textContent: m.filename }),
                     el('div', { className: 'file-date', textContent: `${(m.size / 1024).toFixed(1)} KB` })
                 ),
-                el('a', { className: 'btn btn-sm', href: `/api/modules/${encodeURIComponent(m.filename)}/download`, target: '_blank', textContent: '⬇ Download' })
+                el('a', { className: 'btn btn-sm', href: `/api/modules/${encodeURIComponent(m.filename)}/download`, target: '_blank', textContent: '⬇ Download' }),
+                deleteBtn
             ));
         });
     } catch (e) {

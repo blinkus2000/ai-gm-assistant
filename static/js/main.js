@@ -2,7 +2,7 @@ import { state } from './state.js';
 import { loadDashboard, showDashboard } from './views/Dashboard.js';
 import { showSettings, saveSettings } from './views/Settings.js';
 import { switchTab, closeAdversaryDetail } from './views/Campaign.js';
-import { 
+import {
     showNewCampaignModal, showEditCampaignModal, deleteCampaign,
     showAddSessionModal, editSession, deleteSession,
     showAddNPCModal, editNPC, deleteNPC,
@@ -14,6 +14,10 @@ import {
     uploadRuleset, generateContent, saveGeneratedContent, generateModule,
     enhanceEntity, generateImage
 } from './views/CampaignGenerate.js';
+import {
+    loadChatHistory, sendChatMessage, approveChatAction, rejectChatAction,
+    clearChatHistory, resizeChatInput
+} from './views/Chat.js';
 import { esc } from './utils.js';
 
 window.addEventListener('error', e => { document.body.innerHTML += '<div style="color:red;z-index:9999;position:fixed;top:0;left:0;background:black;padding:10px;">ERR: ' + e.message + '</div>'; });
@@ -37,6 +41,7 @@ document.getElementById('main-content').addEventListener('click', e => {
 
     if (actionEl.classList.contains('tab') && actionEl.dataset.tab) {
         switchTab(actionEl.dataset.tab);
+        if (actionEl.dataset.tab === 'chat') loadChatHistory();
         return;
     }
 
@@ -67,6 +72,9 @@ document.getElementById('main-content').addEventListener('click', e => {
             case 'view-adversary': import('./views/Campaign.js').then(m => m.openAdversaryDetail(id)); break;
             case 'edit-adversary': editAdversary(id); break;
             case 'delete-adversary': deleteAdversary(id); break;
+            // Chat
+            case 'approve-action': approveChatAction(id); break;
+            case 'reject-action': rejectChatAction(id); break;
         }
         return;
     }
@@ -85,6 +93,8 @@ document.getElementById('main-content').addEventListener('click', e => {
         case 'btn-generate': generateContent(); break;
         case 'btn-save-generated': saveGeneratedContent(); break;
         case 'btn-generate-module': generateModule(); break;
+        case 'btn-chat-send': sendChatMessage(); break;
+        case 'btn-chat-clear': clearChatHistory(); break;
         
         case 'btn-generate-session':
             switchTab('generate');
@@ -217,6 +227,19 @@ document.getElementById('adversary-detail-view').addEventListener('click', e => 
         case 'btn-detail-edit': editAdversary(state.currentAdversaryId); break;
         case 'btn-detail-gen-image': generateImage('adversaries', state.currentAdversaryId); break;
     }
+});
+
+document.getElementById('main-content').addEventListener('keydown', e => {
+    if (e.target.id === 'chat-input') {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendChatMessage();
+        }
+    }
+});
+
+document.getElementById('main-content').addEventListener('input', e => {
+    if (e.target.id === 'chat-input') resizeChatInput(e.target);
 });
 
 loadDashboard();
